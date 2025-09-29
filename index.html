@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>rmv.helper</title>
+    <title>rmv.button</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
@@ -87,7 +87,9 @@
                 <div class="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
             <span class="text-sm text-gray-400 font-mono" id="app-window-title">Web Browser</span>
-            <div class="w-16"></div>
+            <div>
+                <button id="download-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
+            </div>
         </div>
         <div class="bg-gray-800 p-2"><input type="text" id="app-window-url" class="w-full bg-gray-900 text-gray-300 rounded px-2 py-1 text-sm" readonly></div>
         <div class="flex-1 bg-white min-h-0"> <!-- FIX: Added min-h-0 for proper flex behavior -->
@@ -108,7 +110,7 @@
               mainContent = document.getElementById('main-content'), bootScreen = document.getElementById('boot-screen'),
               bootLog = document.getElementById('boot-log'), appWindow = document.getElementById('app-window');
         
-        let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, currentUser = 'user', loginTime = new Date();
+        let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, currentUser = 'user', loginTime = new Date(), clonedHtmlContent = '';
         let processes = [ { pid: 1, user: 'root', cmd: 'init' }, { pid: 64, user: 'root', cmd: 'audiod' }, { pid: 72, user: 'user', cmd: 'shell' } ];
         
         // --- AUDIO ---
@@ -146,11 +148,11 @@
         const logRaw = html => { const l=document.createElement('div'); l.innerHTML=html; logOutput.appendChild(l); terminal.scrollTop=terminal.scrollHeight; };
         const BANNER = `<pre class="text-success font-bold">
  ██▀███  ███▄ ▄███▓ ██   ██▓ 
-▓██ ▒ ██▓██▒▀█▀ ██▒▒██  ██▒   
+▓██ ▒ ██▓██▒▀█▀ ██▒▒██  ██▒  
 ▓██ ░▄█ ▓██    ▓██░ ▒██ ██░ 
-▒██▀▀█▄ ▒██    ▒██  ░ ▐██▓░  
-░██▓ ▒██▒██▒   ░██▒ ░ ██▒▓░ 
-░ ▒▓ ░▒▓░ ▒░   ░  ░  ██▒▒▒     
+▒██▀▀█▄ ▒██    ▒██  ░ ▐██▓░ 
+░██▓ ▒██▒██▒   ░██▒ ░ ██▒▓░  
+░ ▒▓ ░▒▓░ ▒░   ░  ░  ██▒▒▒   
   ░▒ ░ ▒░  ░      ░▓██ ░▒░
   ░░   ░      ░    ▒ ▒ ░░
    ░          ░    ░ ░
@@ -196,6 +198,7 @@
                         const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`);
                         if(!r.ok)throw Error(`HTTP Error: ${r.status}`);
                         let c=await r.text();
+                        clonedHtmlContent = c; // Save content for download
                         log(`Success (${(c.length/1024).toFixed(2)} KB). Processing HTML...`,'success');
                         const baseTag = `<base href="${new URL(u).origin}/">`;
                         if (c.includes('<head>')) {
@@ -300,7 +303,26 @@ log(`Reply from ${h}: time=${Date.now()-s}ms`);await sleep(500)}}},"neofetch":{d
         commandInput.addEventListener('keydown', async (e) => {
             if(audioReady&&e.key.length===1&&!e.ctrlKey&&!e.metaKey)keyClick.triggerAttack('C1'); if(e.key==='Enter'&&!isExecuting){const c=commandInput.value.trim();if(c)commandHistory.push(c);historyIndex=commandHistory.length;isExecuting=!0;inputLine.style.visibility='hidden';await processCommand(c);commandInput.value='';updateInputDisplay();isExecuting=!1;inputLine.style.visibility='visible';commandInput.focus()}else if(e.key==='ArrowUp'){e.preventDefault();if(commandHistory.length>0){historyIndex=Math.max(0,(historyIndex??commandHistory.length)-1);commandInput.value=commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='ArrowDown'){e.preventDefault();if(historyIndex<commandHistory.length){historyIndex=Math.min(commandHistory.length,historyIndex+1);commandInput.value=historyIndex===commandHistory.length?'':commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='Tab'){e.preventDefault();const i=commandInput.value.split(' ')[0],m=Object.keys(commands).filter(c=>c.startsWith(i));if(m.length===1){commandInput.value=m[0]+' ';updateInputDisplay()}else if(m.length>1){logRaw(`<span class="text-muted">${promptLabel.textContent.replace(/\s/g,'&nbsp;')} ${sanitizeHTML(commandInput.value)}</span>`);logRaw(m.join('  '))}}else{setTimeout(updateInputDisplay,0)}});
         commandInput.addEventListener('input', updateInputDisplay); commandInput.addEventListener('focus', ()=>inputCursor.classList.remove('hidden')); commandInput.addEventListener('blur', ()=>inputCursor.classList.add('hidden'));
+        
         document.getElementById('close-preview-btn').addEventListener('click', ()=>appWindow.classList.add('hidden'));
+        
+        document.getElementById('download-btn').addEventListener('click', () => {
+             if (!clonedHtmlContent) return alert('No content to download.');
+             const blob = new Blob([clonedHtmlContent], { type: 'text/html' });
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement('a');
+             let filename = 'cloned-site.html';
+             try {
+                const urlObject = new URL(document.getElementById('app-window-url').value);
+                filename = `${urlObject.hostname.replace('www.', '')}.html`;
+             } catch (e) { /* use default */ }
+             a.href = url;
+             a.download = filename;
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             URL.revokeObjectURL(url);
+        });
         
         async function triggerKernelPanic() {
             isExecuting = true;
