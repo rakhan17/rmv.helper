@@ -91,13 +91,13 @@
     
     <!-- App Window for Clone Preview -->
     <div id="app-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 h-5/6 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 300px; min-height: 200px;">
-        <div id="app-window-header" class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+        <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
             <div class="flex items-center gap-2">
-                <button id="close-preview-btn" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <button onclick="this.closest('.window').classList.add('hidden')" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
                 <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div class="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
-            <span class="text-sm text-gray-400 font-mono" id="app-window-title">Web Browser</span>
+            <span class="text-sm text-gray-400 font-mono">Web Browser</span>
             <div>
                 <button id="download-clone-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
             </div>
@@ -111,9 +111,9 @@
 
     <!-- Code Editor Window -->
     <div id="editor-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 400px; min-height: 300px;">
-        <div id="editor-window-header" class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+        <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
             <div class="flex items-center gap-2">
-                <button id="editor-close-btn" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <button onclick="this.closest('.window').classList.add('hidden')" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
                 <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
                 <div class="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
@@ -125,6 +125,23 @@
         </div>
         <div class="flex-1 p-2 min-h-0">
             <textarea id="editor-textarea" class="w-full h-full p-2 rounded focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"></textarea>
+        </div>
+        <div class="resize-handle"></div>
+    </div>
+
+    <!-- App Runner Window -->
+    <div id="run-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 300px; min-height: 200px;">
+        <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+            <div class="flex items-center gap-2">
+                <button onclick="this.closest('.window').classList.add('hidden')" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <span id="run-window-title" class="text-sm text-gray-400 font-mono">App Runner</span>
+            <div></div>
+        </div>
+        <div class="flex-1 bg-white min-h-0">
+            <iframe id="run-frame" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
         <div class="resize-handle"></div>
     </div>
@@ -142,20 +159,19 @@
               mainContent = document.getElementById('main-content'), bootScreen = document.getElementById('boot-screen'),
               bootLog = document.getElementById('boot-log');
         
-        const appWindow = document.getElementById('app-window'), editorWindow = document.getElementById('editor-window'),
+        const appWindow = document.getElementById('app-window'), editorWindow = document.getElementById('editor-window'), runWindow = document.getElementById('run-window'),
               editorTextarea = document.getElementById('editor-textarea'), editorWindowTitle = document.getElementById('editor-window-title');
         
         let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, loginTime = new Date(), clonedHtmlContent = '';
         let processes = [ { pid: 1, user: 'root', cmd: 'init' }, { pid: 64, user: 'root', cmd: 'audiod' }, { pid: 72, user: 'user', cmd: 'shell' } ];
         let currentEditing = { path: null, filename: null };
-        let users = { 'user': {}, 'root': {} };
+        let users = { 'user': { home: ['home', 'user'] }, 'root': { home: ['home', 'root'] } };
         let currentUser = 'user';
         let isMeltdownActive = false;
         let meltdownInterval;
 
 
         // --- AUDIO ---
-        let keyClick, enterSound, errorSound;
         function initAudio() {
             if (audioReady) return;
             try {
@@ -170,7 +186,7 @@
         document.body.addEventListener('keydown', initAudio, { once: true });
 
         // --- SIMULATED FILESYSTEM ---
-        const fs = { 'home': { 'user': { 'documents': {}, 'readme.txt': 'Welcome to RemoveOS v9!\nUse `edit new-file.js` to start coding.' }, 'root': {} } };
+        const fs = { 'home': { 'user': { 'documents': {'demo.js': `console.log('Hello from demo.js!');\nfor(let i=0; i<5; i++) {\n  console.log('Loop count:', i);\n}`}, 'index.html': `<!DOCTYPE html><html><head><title>Test Page</title><style>body{background:#111;color:lime;font-family:monospace;display:grid;place-content:center;height:100vh;margin:0;}h1{border:1px solid lime;padding:1rem;}</style></head><body><h1>Hello from index.html!</h1></body></html>`}, 'root': {} } };
         let currentPath = ['home', 'user'];
         const getPathObject = (path) => {
             let p = Array.isArray(path) ? [...path] : [];
@@ -180,7 +196,9 @@
         function updatePromptAndStatus() {
             const pathString = `/${currentPath.join('/')}`;
             const userColor = currentUser === 'root' ? 'error' : 'accent';
-            promptLabel.innerHTML = `<span class="text-${userColor}">${currentUser}</span>@removeos: <span class="text-white">${pathString.replace('/home/user', '~')}</span>$&nbsp;`;
+            const homeDir = (users[currentUser] && users[currentUser].home.join('/')) || 'home/user';
+            const displayPath = pathString.startsWith(`/${homeDir}`) ? `~${pathString.substring(homeDir.length + 1)}` : pathString;
+            promptLabel.innerHTML = `<span class="text-${userColor}">${currentUser}</span>@removeos: <span class="text-white">${displayPath}</span>$&nbsp;`;
             statusBarPath.textContent = pathString;
         }
 
@@ -208,24 +226,31 @@
         function applyTheme(themeName) { const theme = themes[themeName]; if (!theme) return log(`Theme not found: ${themeName}`, 'error'); Object.entries(theme).forEach(([k,v]) => document.documentElement.style.setProperty(k,v)); localStorage.setItem('terminalTheme', themeName); }
         function simpleSyntaxHighlight(code, lang) {
             let highlightedCode = sanitizeHTML(code);
-            if (lang === 'js') {
-                highlightedCode = highlightedCode
-                    .replace(/\b(const|let|var|function|return|if|else|for|while|async|await|new|import|export|from)\b/g, '<span class="syn-keyword">$&</span>')
-                    .replace(/(\/\*[\s\S]*?\*\/|\/\/.*)/g, '<span class="syn-comment">$&</span>')
-                    .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '<span class="syn-string">$&</span>')
-                    .replace(/\b(\d+)\b/g, '<span class="syn-number">$&</span>');
-            } else if (lang === 'html') {
-                 highlightedCode = highlightedCode
-                    .replace(/&lt;!--[\s\S]*?--&gt;/g, m => `<span class="syn-comment">${m}</span>`)
-                    .replace(/(&lt;\/?)([a-zA-Z0-9-]+)/g, '$1<span class="syn-tag">$2</span>')
-                    .replace(/([a-zA-Z-]+)=/g, '<span class="syn-attr">$1</span>=')
-                    .replace(/(".*?")/g, '<span class="syn-value">$1</span>');
-            } else if (lang === 'css') {
-                 highlightedCode = highlightedCode
-                    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syn-comment">$1</span>')
-                    .replace(/(#|\.)[a-zA-Z0-9-_]+/g, '<span class="syn-tag">$&</span>')
-                    .replace(/([a-zA-Z-]+)(?=:)/g, '<span class="syn-attr">$&</span>')
-                    .replace(/:\s*(.*?);/g, ': <span class="syn-value">$1</span>;');
+            const rules = {
+                js: [
+                    { regex: /\b(const|let|var|function|return|if|else|for|while|async|await|new|import|export|from)\b/g, class: 'syn-keyword' },
+                    { regex: /(\/\*[\s\S]*?\*\/|\/\/.*)/g, class: 'syn-comment' },
+                    { regex: /(['"`])(?:(?=(\\?))\2.)*?\1/g, class: 'syn-string' },
+                    { regex: /\b(\d+)\b/g, class: 'syn-number' }
+                ],
+                html: [
+                    { regex: /&lt;!--[\s\S]*?--&gt;/g, class: 'syn-comment' },
+                    { regex: /(&lt;\/?)([a-zA-Z0-9-]+)/g, replacement: '$1<span class="syn-tag">$2</span>' },
+                    { regex: /([a-zA-Z-]+)=/g, replacement: '<span class="syn-attr">$1</span>=' },
+                    { regex: /(".*?")/g, replacement: '<span class="syn-value">$1</span>' }
+                ],
+                css: [
+                    { regex: /(\/\*[\s\S]*?\*\/)/g, class: 'syn-comment' },
+                    { regex: /(#|\.)[a-zA-Z0-9-_]+/g, class: 'syn-tag' },
+                    { regex: /([a-zA-Z-]+)(?=:)/g, class: 'syn-attr' },
+                    { regex: /:\s*(.*?);/g, replacement: ': <span class="syn-value">$1</span>;' }
+                ]
+            };
+            if (rules[lang]) {
+                rules[lang].forEach(rule => {
+                    if (rule.class) highlightedCode = highlightedCode.replace(rule.regex, `<span class="${rule.class}">$&</span>`);
+                    else if (rule.replacement) highlightedCode = highlightedCode.replace(rule.regex, rule.replacement);
+                });
             }
             return `<pre>${highlightedCode}</pre>`;
         }
@@ -234,10 +259,10 @@
         // --- COMMANDS ---
         let commands = {
             // Core & Navigation
-            help: { description: 'Displays this help message.', execute: async () => { log('RemoveOS Command List:', 'success'); let t='<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4">'; Object.keys(commands).sort().forEach(c=>t+=`<div><span class="text-success">${c.padEnd(12)}</span><span class="text-muted">${commands[c].description}</span></div>`); logRaw(t+'</div>')} },
+            help: { description: 'Displays this help message.', execute: async () => { log('RemoveOS Command List:', 'success'); let t='<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4">'; Object.keys(commands).sort().forEach(c=>t+=`<div><span class="text-success">${c.padEnd(12)}</span><span class="text-muted">${(commands[c].description || '')}</span></div>`); logRaw(t+'</div>')} },
             history: { description: 'Shows command history.', execute: async () => logRaw(commandHistory.map((c,i)=>`<span class="text-muted">${String(i).padEnd(3)}</span> ${sanitizeHTML(c)}`).join('<br>')) },
             ls: { description: 'Lists directory contents. (alias: dir)', execute: async () => { const d=getPathObject(currentPath); if(!d)return log('Directory does not exist.','error');const e=Object.entries(d);if(e.length===0)return;logRaw(e.map(([n,c])=>typeof c==='object'?`<span class="dir">${n}/</span>`:`<span class="file">${n}</span>`).join('  '))} },
-            cd: { description: 'Changes directory.', execute: async (a) => { const t=a[0]||'home/user';if(t==='..'){if(currentPath.length>1)currentPath.pop()}else{const p=t.startsWith('/')?t.substring(1).split('/'):[...currentPath,...t.split('/')];if(getPathObject(p))currentPath=p.filter(i=>i);else return log(`Path not found: ${t}`,'error')}updatePromptAndStatus()} },
+            cd: { description: 'Changes directory.', execute: async (a) => { if(!a[0] || a[0] ==='~') { currentPath = users[currentUser].home; } else if(a[0]==='..'){if(currentPath.length>1)currentPath.pop()}else{const p=a[0].startsWith('/')?a[0].substring(1).split('/'):[...currentPath,...a[0].split('/')];if(getPathObject(p))currentPath=p.filter(i=>i);else return log(`Path not found: ${a[0]}`,'error')}updatePromptAndStatus()} },
             clear: { description: 'Clears the terminal screen. (alias: cls)', execute: async () => logOutput.innerHTML = '' },
             banner: { description: 'Displays the welcome banner.', execute: async () => logRaw(BANNER) },
             
@@ -254,20 +279,35 @@
 
             // Coding & Development
             edit: { description: 'Creates or edits a file in the code editor.', execute: async (a) => { const fn=a[0];if(!fn)return log('Filename required. Usage: edit <filename>','error');currentEditing={path:[...currentPath],filename:fn};const fc=getPathObject(currentEditing.path)[currentEditing.filename];editorWindowTitle.textContent=`edit - /${currentEditing.path.join('/')}/${fn}`;editorTextarea.value=(typeof fc==='string')?fc:'';editorWindow.classList.remove('hidden');editorTextarea.focus()}},
-            
+            run: { description: 'Runs an HTML or JS file.', execute: async(a) => { const f=a[0]; if(!f) return log('Filename required.', 'error'); const c=getPathObject(currentPath)[f]; if(typeof c !== 'string') return log(`File not found or is a directory: ${f}`, 'error');
+                if(f.endsWith('.html')) {
+                    document.getElementById('run-frame').srcdoc = c;
+                    document.getElementById('run-window-title').textContent = `App Runner - ${f}`;
+                    runWindow.classList.remove('hidden');
+                    log(`Rendering ${f}...`, 'success');
+                } else if (f.endsWith('.js')) {
+                    log(`Executing ${f}...`, 'info');
+                    const oldConsoleLog = console.log;
+                    console.log = (...args) => { logRaw('> ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')); };
+                    try { new Function(c)(); } catch(e) { log(`Runtime Error in ${f}: ${e.message}`, 'error'); }
+                    console.log = oldConsoleLog;
+                    log('Execution finished.', 'success');
+                } else { log('Unsupported file type. Can only run .html and .js files.', 'error'); }
+            }},
+
             // System, User & Info
             date: { description: 'Shows current date and time.', execute: async () => log(new Date().toLocaleString('en-US')) },
             reboot: { description: 'Reboots the OS.', execute: async () => { window.location.reload(); } },
             whoami: { description: 'Shows the current user.', execute: async () => log(currentUser) },
             ps: { description: 'Lists running processes.', execute: async () => { let t='<pre><span class="text-accent">PID   USER      COMMAND</span>\n'; processes.forEach(p=>t+=`${String(p.pid).padEnd(5)} ${p.user.padEnd(9)} ${p.cmd}\n`); logRaw(t+'</pre>') } },
             kill: { description: 'Terminates a process.', execute: async(a) => { const id=parseInt(a[0]);if(!id)return log('PID required.','error');if(id===1||id===72)return log('Access denied.','error');const i=processes.findIndex(p=>p.pid===id);if(i===-1)return log(`Process not found: ${id}`,'error');log(`Process ${processes[i].cmd} (PID ${id}) terminated.`,'success');processes.splice(i,1)} },
-            useradd: { description: 'Creates a new user.', execute: async (a) => { const u=a[0];if(!u)return log('Username required.','error');if(users[u]) return log(`User '${u}' already exists.`,'error'); users[u]={}; fs.home[u]={}; log(`User '${u}' created. Home directory at /home/${u}`,'success') } },
-            su: { description: 'Switches to another user.', execute: async (a) => { const u=a[0];if(!u)return log('Username required.','error'); if(!users[u]) return log(`User '${u}' not found.`,'error'); currentUser=u; currentPath=['home',u]; updatePromptAndStatus()}},
+            useradd: { description: 'Creates a new user.', execute: async (a) => { const u=a[0];if(!u)return log('Username required.','error');if(users[u]) return log(`User '${u}' already exists.`,'error'); const homePath = ['home', u]; users[u]={ home: homePath }; getPathObject(['home'])[u] = {}; log(`User '${u}' created. Home directory at /home/${u}`,'success') } },
+            su: { description: 'Switches to another user.', execute: async (a) => { const u=a[0] || 'user';if(!users[u]) return log(`User '${u}' not found.`,'error'); currentUser=u; currentPath=users[u].home; updatePromptAndStatus()}},
             calc: { description: 'Evaluates a mathematical expression.', execute: async (a) => { const expr = a.join(' '); try { const result = new Function('return ' + expr)(); log(result); } catch(e) { log('Invalid expression.', 'error'); }}},
             systeminfo: { description: 'Displays detailed system information.', execute: async() => { logRaw(`<pre class="text-gray-300">
   <span class="text-accent">Host Name:</span>             REMOVEOS
-  <span class="text-accent">OS Name:</span>               RemoveOS Version 9.4
-  <span class="text-accent">OS Version:</span>            9.4.2024
+  <span class="text-accent">OS Name:</span>               RemoveOS Version 9.5
+  <span class="text-accent">OS Version:</span>            9.5.2024
   <span class="text-accent">Processor(s):</span>          1 Processor(s) Installed. [${navigator.hardwareConcurrency} Cores]
   </pre>`);}},
             
@@ -279,7 +319,7 @@
             
             // UI & Fun
             theme: { description: 'Changes the UI theme.', execute: async (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
-            neofetch: { description:'Shows system info.', execute:async()=>{ const up=((new Date()-loginTime)/60000).toFixed(0)+" mins";logRaw(`<pre><span class="text-success">${currentUser}@removeos</span>\n-------\n<span class="text-success">OS:</span> RemoveOS v9.4\n<span class="text-success">Uptime:</span> ${up}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},
+            neofetch: { description:'Shows system info.', execute:async()=>{ const up=((new Date()-loginTime)/60000).toFixed(0)+" mins";logRaw(`<pre><span class="text-success">${currentUser}@removeos</span>\n-------\n<span class="text-success">OS:</span> RemoveOS v9.5\n<span class="text-success">Uptime:</span> ${up}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},
             passgen: { description: 'Generates a random password.', execute: async (a) => { const l=parseInt(a[0])||16,c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';let p='';for(let i=0;i<l;i++)p+=c.charAt(Math.floor(Math.random()*c.length));logRaw(`<span class="text-accent">${p}</span>`)} },
             matrix: { description:'Digital Rain effect.', execute:async()=>{const c=document.createElement('canvas');c.id='matrix-canvas';c.style.position='fixed';c.style.top=0;c.style.left=0;c.style.zIndex=998;document.body.appendChild(c);const x=c.getContext('2d');c.width=window.innerWidth;c.height=window.innerHeight;const l='アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン',f=18,o=c.width/f,d=Array(Math.floor(o)).fill(1);let i;function w(){x.fillStyle='rgba(0,0,0,0.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary');x.font=`${f}px monospace`;for(let t=0;t<d.length;t++){const e=l[Math.floor(Math.random()*l.length)];x.fillText(e,t*f,d[t]*f);d[t]*f>c.height&&Math.random()>.975&&(d[t]=0);d[t]++}}i=setInterval(w,40);const s=()=>{clearInterval(i);document.body.removeChild(c);window.removeEventListener('keydown',s,{once:true});window.removeEventListener('click',s,{once:true})};window.addEventListener('keydown',s,{once:true});window.addEventListener('click',s,{once:true})}},
             meltdown: { description: 'Initiates core system deconstruction.', execute: async () => { if (isMeltdownActive) return; log('WARNING: Core system integrity compromised. Deconstruction sequence initiated.', 'error'); await sleep(1000); triggerMeltdown(); } },
@@ -306,8 +346,6 @@
             if(audioReady&&e.key.length===1&&!e.ctrlKey&&!e.metaKey)keyClick.triggerAttack('C1'); if(e.key==='Enter'&&!isExecuting){const c=commandInput.value.trim();if(c)commandHistory.push(c);historyIndex=commandHistory.length;isExecuting=!0;inputLine.style.visibility='hidden';await processCommand(c);commandInput.value='';updateInputDisplay();if(!isMeltdownActive){isExecuting=!1;inputLine.style.visibility='visible';commandInput.focus()}}else if(e.key==='ArrowUp'){e.preventDefault();if(commandHistory.length>0){historyIndex=Math.max(0,(historyIndex??commandHistory.length)-1);commandInput.value=commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='ArrowDown'){e.preventDefault();if(historyIndex<commandHistory.length){historyIndex=Math.min(commandHistory.length,historyIndex+1);commandInput.value=historyIndex===commandHistory.length?'':commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='Tab'){e.preventDefault();const i=commandInput.value.split(' ')[0],m=Object.keys(commands).filter(c=>c.startsWith(i));if(m.length===1){commandInput.value=m[0]+' ';updateInputDisplay()}else if(m.length>1){logRaw(`<span class="text-muted">${promptLabel.textContent.replace(/\s/g,'&nbsp;')} ${sanitizeHTML(commandInput.value)}</span>`);logRaw(m.join('  '))}}else{setTimeout(updateInputDisplay,0)}});
         commandInput.addEventListener('input', updateInputDisplay); commandInput.addEventListener('focus', ()=>inputCursor.classList.remove('hidden')); commandInput.addEventListener('blur', ()=>inputCursor.classList.add('hidden'));
         
-        document.getElementById('close-preview-btn').addEventListener('click', ()=>appWindow.classList.add('hidden'));
-        document.getElementById('editor-close-btn').addEventListener('click', ()=>editorWindow.classList.add('hidden'));
         document.getElementById('editor-save-btn').addEventListener('click', ()=>{if(!currentEditing.filename)return;const d=getPathObject(currentEditing.path);if(d){d[currentEditing.filename]=editorTextarea.value;log(`File '${currentEditing.filename}' saved.`,'success')}else{log(`Error: Path no longer exists.`,'error')}});
         const downloadFile = (c, f, t) => { const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=f;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u) }
         document.getElementById('editor-download-btn').addEventListener('click', ()=>{const c=editorTextarea.value,f=currentEditing.filename||'new-file.txt';downloadFile(c,f,'text/plain')});
@@ -346,7 +384,6 @@
             isMeltdownActive = true;
             inputLine.style.visibility = 'hidden';
             meltdownInterval = setInterval(createErrorWindow, 50); // Appear much faster
-            // The timeout that stops it is removed. It will run indefinitely until reboot.
         }
         
         // --- BOOT SEQUENCE & INITIALIZATION ---
@@ -355,22 +392,23 @@
         async function bootStep(text, delay=50) { bootLog.textContent+=text+'\n'; await sleep(delay); }
         async function startBootSequence() {
             loginTime=new Date(); bootLog.textContent=''; await sleep(500);
-            await bootStep('RemoveOS BIOS v9.4 ...'); await bootStep('Initializing USB Controllers ... OK');
+            await bootStep('RemoveOS BIOS v9.5 ...'); await bootStep('Initializing USB Controllers ... OK');
             await bootStep(`Memory Test: ${Math.pow(2, Math.floor(Math.random()*4+2))}GB OK`); await bootStep('Found (SATA): REMOVEOS_DISK ... Booting...'); await sleep(500);
-            await bootStep('Loading kernel v9.4-release ...'); await bootStep('Initializing filesystem ...');
+            await bootStep('Loading kernel v9.5-release ...'); await bootStep('Initializing filesystem ...');
             await bootStep('Starting service audiod ... [OK]'); await bootStep('Starting service networkd ... [OK]');
             await bootStep('Starting AI Core Daemon ... [OK]');
             await bootStep('Starting shell ...'); await sleep(1000);
             bootScreen.classList.add('hidden'); mainContent.classList.remove('hidden'); init();
         }
         function init() {
-            logOutput.innerHTML=''; logRaw(BANNER); log('RemoveOS v9.4 loaded. Welcome.', 'success');
-            log("Type 'help' for commands, or 'meltdown' for a surprise.", 'info'); applyTheme(localStorage.getItem('terminalTheme')||'matrix');
+            logOutput.innerHTML=''; logRaw(BANNER); log('RemoveOS v9.5 loaded. Welcome.', 'success');
+            log("Type 'help' for commands, 'run <file>' to execute code.", 'info'); applyTheme(localStorage.getItem('terminalTheme')||'matrix');
             updatePromptAndStatus(); commandInput.focus(); updateInputDisplay();
             setInterval(() => { const n=new Date(); statusBarTime.textContent=n.toLocaleTimeString('en-US'); statusBarDate.textContent=n.toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'}); }, 1000);
             requestAnimationFrame(gameLoop);
             makeInteractive(appWindow);
             makeInteractive(editorWindow);
+            makeInteractive(runWindow);
         }
         startBootSequence();
     </script>
