@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rmv.helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: #050806; --foreground: #e0e0e0; --primary: #00ff41; --secondary: #2d2d2d;
+            --border: #222222; --accent: #ffc700; --error: #ff4136; --glow: rgba(0, 255, 65, 0.15);
+        }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body {
+            font-family: 'Fira Code', monospace; background-color: var(--background); color: var(--foreground);
+            font-size: 14px; text-shadow: 0 0 5px var(--glow); transition: background-color 0.5s, color 0.5s;
+        }
+        body::after {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000; background-size: 100% 2px, 3px 100%; pointer-events: none; animation: flicker 0.15s infinite;
+        }
+        @keyframes flicker { 0% { opacity: 0.2; } 20% { opacity: 0.8; } 40% { opacity: 0.3; } 60% { opacity: 0.9; } 80% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: #333; }
+        
+        @keyframes blink { 0%, 100% { background-color: var(--primary); opacity: 1; } 50% { background-color: var(--primary); opacity: 0; } }
+        .cursor { display: inline-block; width: 0.6em; height: 1.1em; background-color: var(--primary); animation: blink 1.2s step-end infinite; vertical-align: text-bottom; }
+        
+        .text-success { color: var(--primary); } .text-accent { color: var(--accent); }
+        .text-error { color: var(--error); } .text-muted { color: #888; }
+        .dir { color: var(--accent); } .file { color: var(--foreground); }
+
+        #boot-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; color: #fff; font-family: 'Courier New', Courier, monospace; }
+        #app-window {
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            animation: fadeInWindow 0.3s ease-out;
+        }
+        @keyframes fadeInWindow { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="flex h-screen p-2 sm:p-4">
+    <div id="boot-screen" class="p-4">
+        <pre id="boot-log"></pre>
+    </div>
+    <div id="main-content" class="flex flex-col h-full w-full bg-black/50 border border-[var(--border)] rounded-lg p-4 relative hidden">
+        <header class="flex justify-between items-center pb-2 border-b border-[var(--border)] flex-shrink-0">
+            <div class="flex items-center gap-2"><span class="w-3 h-3 bg-red-500 rounded-full"></span><span class="w-3 h-3 bg-yellow-500 rounded-full"></span><span class="w-3 h-3 bg-green-500 rounded-full"></span></div>
+            <p class="text-sm text-gray-500">RMV OS :: shell</p>
+            <div></div>
+        </header>
+
+        <div id="terminal" class="flex-1 my-2 overflow-y-auto pr-2" onclick="commandInput.focus()">
+            <div id="log-output"></div>
+            <div id="input-line" class="flex items-center">
+                <label for="command-input" id="prompt" class="text-success font-semibold flex-shrink-0"></label>
+                <div class="relative flex-1">
+                    <span id="input-text-before" class="whitespace-pre-wrap"></span><span id="input-cursor" class="cursor hidden"></span><span id="input-text-after" class="whitespace-pre-wrap"></span>
+                    <input type="text" id="command-input" class="absolute top-0 left-0 w-full h-full opacity-0" autocomplete="off" autofocus>
+                </div>
+            </div>
+        </div>
+
+        <footer id="status-bar" class="flex justify-between items-center pt-2 border-t border-[var(--border)] text-xs text-muted flex-shrink-0 flex-wrap gap-x-4">
+            <div id="status-path" class="truncate">/home/user</div>
+            <div class="flex-grow"></div>
+            <div id="status-cpu">CPU: 0%</div>
+            <div id="status-gpu">GPU: GFX-2025</div>
+            <div id="status-fps">FPS: 0</div>
+            <div id="status-date"></div>
+            <div id="status-time"></div>
+        </footer>
+    </div>
+    
+    <!-- App Window for Clone Preview -->
+    <div id="app-window" class="hidden absolute inset-0 m-auto w-11/12 h-5/6 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20">
+        <div class="bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg cursor-move">
+            <div class="flex items-center gap-2">
+                <button id="close-preview-btn" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <span class="text-sm text-gray-400 font-mono" id="app-window-title">Web Browser</span>
+            <div class="w-16"></div>
+        </div>
+        <div class="bg-gray-800 p-2"><input type="text" id="app-window-url" class="w-full bg-gray-900 text-gray-300 rounded px-2 py-1 text-sm" readonly></div>
+        <div class="flex-1 bg-white min-h-0"> <!-- FIX: Added min-h-0 for proper flex behavior -->
+            <iframe id="result-frame" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DOM ELEMENTS & STATE---
+        const terminal = document.getElementById('terminal'), logOutput = document.getElementById('log-output'),
+              commandInput = document.getElementById('command-input'), inputLine = document.getElementById('input-line'),
+              inputTextBefore = document.getElementById('input-text-before'), inputTextAfter = document.getElementById('input-text-after'),
+              inputCursor = document.getElementById('input-cursor'), promptLabel = document.getElementById('prompt'),
+              statusBarPath = document.getElementById('status-path'), statusBarTime = document.getElementById('status-time'),
+              statusBarDate = document.getElementById('status-date'), statusBarCpu = document.getElementById('status-cpu'),
+              statusBarGpu = document.getElementById('status-gpu'), statusBarFps = document.getElementById('status-fps'),
+              mainContent = document.getElementById('main-content'), bootScreen = document.getElementById('boot-screen'),
+              bootLog = document.getElementById('boot-log'), appWindow = document.getElementById('app-window');
+        
+        let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, currentUser = 'user', loginTime = new Date();
+        let processes = [ { pid: 1, user: 'root', cmd: 'init' }, { pid: 64, user: 'root', cmd: 'audiod' }, { pid: 72, user: 'user', cmd: 'shell' } ];
+        
+        // --- AUDIO ---
+        let keyClick, enterSound, errorSound;
+        function initAudio() {
+            if (audioReady) return;
+            try {
+                keyClick = new Tone.MembraneSynth({ pitchDecay: 0.008, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination();
+                enterSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination();
+                errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).toDestination();
+                audioReady = true;
+            } catch (e) { console.warn("Tone.js failed to initialize. Audio disabled."); }
+        }
+        document.body.addEventListener('click', initAudio, { once: true });
+        document.body.addEventListener('keydown', initAudio, { once: true });
+
+        // --- SIMULATED FILESYSTEM ---
+        const fs = { 'home': { 'user': { 'documents': {}, 'readme.txt': 'Welcome to RMV OS v9!' } } };
+        let currentPath = ['home', 'user'];
+        const getPathObject = (path) => path.reduce((obj, part) => obj && obj[part], fs);
+        function updatePromptAndStatus() {
+            const pathString = `/${currentPath.join('/')}`;
+            const userColor = currentUser === 'root' ? 'error' : 'accent';
+            promptLabel.innerHTML = `<span class="text-${userColor}">${currentUser}</span>@rmv: <span class="text-white">${pathString.replace('/home/user', '~')}</span>$&nbsp;`;
+            statusBarPath.textContent = pathString;
+        }
+
+        // --- UTILITY ---
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const sanitizeHTML = str => { const t = document.createElement('div'); t.textContent = str; return t.innerHTML; };
+        const log = (msg, lvl='info') => {
+            const p={'info':'*','success':'+','error':'-','warning':'!'}, c={'info':'accent','success':'success','error':'error','warning':'accent'};
+            logRaw(`[<span class="text-${c[lvl]}">${p[lvl]}</span>] ${msg}`);
+        };
+        const logRaw = html => { const l=document.createElement('div'); l.innerHTML=html; logOutput.appendChild(l); terminal.scrollTop=terminal.scrollHeight; };
+        const BANNER = `<pre class="text-success font-bold">
+ ██▀███  ███▄ ▄███▓ ██   ██▓ 
+▓██ ▒ ██▓██▒▀█▀ ██▒▒██  ██▒   
+▓██ ░▄█ ▓██    ▓██░ ▒██ ██░ 
+▒██▀▀█▄ ▒██    ▒██  ░ ▐██▓░  
+░██▓ ▒██▒██▒   ░██▒ ░ ██▒▓░ 
+░ ▒▓ ░▒▓░ ▒░   ░  ░  ██▒▒▒     
+  ░▒ ░ ▒░  ░      ░▓██ ░▒░
+  ░░   ░      ░    ▒ ▒ ░░
+   ░          ░    ░ ░
+                     ░ ░
+</pre>`;
+        const themes = {
+            matrix: { '--background': '#050806', '--foreground': '#e0e0e0', '--primary': '#00ff41', '--accent': '#ffc700', '--glow': 'rgba(0, 255, 65, 0.15)' },
+            amber: { '--background': '#2E1D00', '--foreground': '#FFB000', '--primary': '#FFC700', '--accent': '#FFFFFF', '--glow': 'rgba(255, 176, 0, 0.15)' },
+            arctic: { '--background': '#0E1721', '--foreground': '#D8DEE9', '--primary': '#88C0D0', '--accent': '#EBCB8B', '--glow': 'rgba(136, 192, 208, 0.15)' },
+            cyberpunk: { '--background': '#0d0221', '--foreground': '#b4befe', '--primary': '#f038ff', '--accent': '#00a9ff', '--glow': 'rgba(240, 56, 255, 0.2)' }
+        };
+        function applyTheme(themeName) {
+            const theme = themes[themeName]; if (!theme) return log(`Theme not found: ${themeName}`, 'error');
+            Object.entries(theme).forEach(([k,v]) => document.documentElement.style.setProperty(k,v));
+            localStorage.setItem('terminalTheme', themeName);
+        }
+
+        // --- COMMANDS ---
+        let commands = {
+            help: { description: 'Displays this help message.', execute: async () => { log('RMV OS Command List:', 'success'); let t='<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4">'; Object.keys(commands).sort().forEach(c=>t+=`<div><span class="text-success">${c.padEnd(12)}</span><span class="text-muted">${commands[c].description}</span></div>`); logRaw(t+'</div>')} },
+            history: { description: 'Shows command history.', execute: () => logRaw(commandHistory.map((c,i)=>`<span class="text-muted">${String(i).padEnd(3)}</span> ${sanitizeHTML(c)}`).join('<br>')) },
+            ls: { description: 'Lists directory contents.', execute: async () => { const d=getPathObject(currentPath); if(!d)return log('Directory does not exist.','error');const e=Object.entries(d);if(e.length===0)return;logRaw(e.map(([n,c])=>typeof c==='object'?`<span class="dir">${n}/</span>`:`<span class="file">${n}</span>`).join('  '))} },
+            cd: { description: 'Changes directory.', execute: async (a) => { const t=a[0]||'home/user';if(t==='..'){if(currentPath.length>1)currentPath.pop()}else{const p=t.startsWith('/')?t.substring(1).split('/'):[...currentPath,...t.split('/')];if(getPathObject(p))currentPath=p.filter(i=>i);else return log(`Path not found: ${t}`,'error')}updatePromptAndStatus()} },
+            mkdir: { description: 'Creates a new directory.', execute: async (a) => { const n=a[0];if(!n)return log('Directory name required.','error');const d=getPathObject(currentPath);if(d[n])return log('Name already exists.','error');d[n]={}} },
+            cat: { description: 'Displays file content.', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const c=getPathObject(currentPath)[n];if(typeof c!=='string')return log('Not a file or not found.','error');logRaw(`<pre class="text-gray-300">${sanitizeHTML(c)}</pre>`)} },
+            echo: { description: 'Creates a file with text.', execute: async (a) => { const s=a.join(' '),m=s.match(/(.*) > ([\w.-]+)/);if(!m)return log('Invalid format. Use: echo "text" > file.txt','error');const[,c,f]=m;getPathObject(currentPath)[f]=c.replace(/^"|"$/g,'')} },
+            passgen: { description: 'Generates a random password.', execute: async (a) => { const l=parseInt(a[0])||16,c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';let p='';for(let i=0;i<l;i++)p+=c.charAt(Math.floor(Math.random()*c.length));logRaw(`<span class="text-accent">${p}</span>`)} },
+            clear: { description: 'Clears the terminal screen.', execute: () => logOutput.innerHTML = '' },
+            banner: { description: 'Displays the welcome banner.', execute: () => logRaw(BANNER) },
+            date: { description: 'Shows current date and time.', execute: async () => log(new Date().toLocaleString('en-US')) },
+            theme: { description: 'Changes the UI theme.', execute: (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
+            reboot: { description: 'Reboots the OS.', execute: () => { mainContent.classList.add('hidden'); bootScreen.classList.remove('hidden'); startBootSequence(); } },
+            whoami: { description: 'Shows the current user.', execute: () => log(currentUser) },
+            ps: { description: 'Lists running processes.', execute: () => { let t='<pre><span class="text-accent">PID   USER      COMMAND</span>\n'; processes.forEach(p=>t+=`${String(p.pid).padEnd(5)} ${p.user.padEnd(9)} ${p.cmd}\n`); logRaw(t+'</pre>') } },
+            kill: { description: 'Terminates a process.', execute: async(a) => { const id=parseInt(a[0]);if(!id)return log('PID required.','error');if(id===1||id===72)return log('Access denied.','error');const i=processes.findIndex(p=>p.pid===id);if(i===-1)return log(`Process not found: ${id}`,'error');log(`Process ${processes[i].cmd} (PID ${id}) terminated.`,'success');processes.splice(i,1)} },
+            sudo: { description: 'Run command as root.', execute: async(a) => { if(currentUser==='root') return log('Already root.'); logRaw(`[sudo] password for ${currentUser}: `); inputLine.style.visibility='hidden'; await sleep(1500); inputLine.style.visibility='visible'; logRaw('Sorry, try again.');} },
+            clone: {
+                description:'Clones a website.',
+                execute: async a=>{
+                    const u=a[0];if(!u)return log('URL required.','error');
+                    log(`Cloning ${u}...`);
+                    try{
+                        const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`);
+                        if(!r.ok)throw Error(`HTTP Error: ${r.status}`);
+                        let c=await r.text();
+                        log(`Success (${(c.length/1024).toFixed(2)} KB). Processing HTML...`,'success');
+                        const baseTag = `<base href="${new URL(u).origin}/">`;
+                        if (c.includes('<head>')) {
+                            c = c.replace(/<head>/i, `<head>${baseTag}`);
+                        } else {
+                            c = baseTag + c;
+                        }
+                        const appUrl = document.getElementById('app-window-url');
+                        const iframe = document.getElementById('result-frame');
+                        appUrl.value = u;
+                        iframe.srcdoc = c;
+                        appWindow.classList.remove('hidden');
+                    } catch(e) { log(`Failed: ${e.message}`, 'error'); }
+                }
+            },
+            ask: {
+                description: 'Ask RMVBOT AI. Usage: ask <prompt>',
+                execute: async (args) => {
+                    const prompt = args.join(' ');
+                    if (!prompt) return log('Prompt cannot be empty.', 'error');
+                    const API_KEY = 'AIzaSyAseLVSPClUqnn9BPHEjSxLDDAJvyqAOwk';
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+                    
+                    log('RMVBOT is thinking...', 'info');
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+
+                        if (!response.ok) {
+                           if (response.status === 429) {
+                                triggerKernelPanic();
+                                return;
+                           }
+                           throw new Error(`API Error: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (text) {
+                            logRaw(`<div class="p-2 border-l-2 border-primary my-2"><span class="text-success">[RMVBOT]</span><br>${sanitizeHTML(text).replace(/\n/g, '<br>')}</div>`);
+                        } else { throw new Error('Invalid response from API.'); }
+                    } catch (e) { log(`Failed to contact RMVBOT: ${e.message}`, 'error'); }
+                }
+            },
+            audit: {
+                description: 'Runs a passive security audit on a URL.',
+                execute: async (args) => {
+                    const url = args[0]; if(!url) return log('URL required.', 'error');
+                    log(`Starting passive audit for ${url}...`);
+                    try {
+                        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+                        if(!res.ok) throw Error(`HTTP Error: ${res.status}`);
+                        log('Fetching headers...', 'info');
+                        const headers = {};
+                        res.headers.forEach((val, key) => headers[key.toLowerCase()] = val);
+                        
+                        // Check Security Headers
+                        log('Analyzing security headers...', 'info');
+                        const secHeaders = {'content-security-policy':'critical','x-frame-options':'high','x-content-type-options':'medium','strict-transport-security':'high'};
+                        for(const h in secHeaders) {
+                            if(headers[h]) log(`[${secHeaders[h]}] Found header: ${h}`, 'success');
+                            else log(`[${secHeaders[h]}] Missing header: ${h}`, 'warning');
+                        }
+
+                        // Check Cookies
+                        log('Analyzing cookies...', 'info');
+                        if (headers['set-cookie']) {
+                            const cookies = Array.isArray(headers['set-cookie']) ? headers['set-cookie'] : [headers['set-cookie']];
+                            cookies.forEach(c => {
+                                if(!/HttpOnly/i.test(c)) log('[high] Cookie missing HttpOnly flag.', 'warning');
+                                if(!/Secure/i.test(c)) log('[medium] Cookie missing Secure flag.', 'warning');
+                            });
+                        } else { log('No cookies set in response.', 'success'); }
+
+                        log('Analyzing HTML source for potential exposures...', 'info');
+                        const html = await res.text();
+                        const apiKeyRegex = /(['"](api_key|authorization_token|access_token)['"]\s*:\s*['"]([a-zA-Z0-9-_.]{16,})['"])/ig;
+                        const matches = html.match(apiKeyRegex);
+                        if (matches) {
+                            log(`[CRITICAL] Found ${matches.length} potential API key pattern(s) exposed in HTML source!`, 'error');
+                            logRaw(`<pre class="text-error">${sanitizeHTML(matches[0])}...</pre>`);
+                        } else {
+                            log('No obvious API key patterns found in source.', 'success');
+                        }
+
+                        log('Audit complete.', 'success');
+                    } catch (e) { log(`Audit failed: ${e.message}`, 'error'); }
+                }
+            },
+        };
+        const legacyCommands = {"ping":{d:'Pings a host.',e:async a=>{const h=a[0];if(!h)return log('Host required.','error');log(`Pinging ${h}...`);for(let i=0;i<4;i++){const s=Date.now();try{await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`http://${h}`)}`,{mode:'no-cors',cache:'no-store'})}catch(e){}
+log(`Reply from ${h}: time=${Date.now()-s}ms`);await sleep(500)}}},"neofetch":{d:'Shows system info.',e:async()=>{ const u=navigator.userAgent,o=u.includes("Win")?"Windows":u.includes("Mac")?"MacOS":"Linux"; const uptime = ((new Date() - loginTime) / 1000 / 60).toFixed(0) + " mins"; logRaw(`<pre><span class="text-success">${currentUser}@rmv</span>\n-------\n<span class="text-success">OS:</span> ${o}\n<span class="text-success">Uptime:</span> ${uptime}\n<span class="text-success">Login:</span> ${loginTime.toLocaleString()}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},"matrix":{d:'Digital Rain effect.',e:async()=>{const c=document.getElementById('matrix-canvas'),x=c.getContext('2d');c.style.display='block';c.width=window.innerWidth;c.height=window.innerHeight;const l='アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン',f=18,o=c.width/f,d=Array(Math.floor(o)).fill(1);let i;function w(){x.fillStyle='rgba(0,0,0,0.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary');x.font=`${f}px monospace`;for(let t=0;t<d.length;t++){const e=l[Math.floor(Math.random()*l.length)];x.fillText(e,t*f,d[t]*f);d[t]*f>c.height&&Math.random()>.975&&(d[t]=0);d[t]++}}i=setInterval(w,40);const s=()=>{clearInterval(i);c.style.display='none';window.removeEventListener('keydown',s);window.removeEventListener('click',s)};window.addEventListener('keydown',s);window.addEventListener('click',s)}}}
+        Object.entries(legacyCommands).forEach(([n,c])=>commands[n]={description:c.d, execute:c.e});
+
+        // --- MAIN LOGIC & EVENT LISTENERS ---
+        function updateInputDisplay() { const v=commandInput.value, p=commandInput.selectionStart; inputTextBefore.textContent=v.substring(0,p); inputTextAfter.textContent=v.substring(p); inputCursor.scrollIntoView({block:'nearest'}); }
+        async function processCommand(i) {
+            const [n,...a]=i.trim().split(/\s+/); if(!n)return; logRaw(`<span class="text-muted">${promptLabel.textContent.replace(/\s/g,'&nbsp;')} ${sanitizeHTML(i)}</span>`); const c=commands[n.toLowerCase()]; if(audioReady)c?enterSound.triggerAttackRelease('C5','8n'):errorSound.triggerAttackRelease('C3','8n'); if(c)await c.execute(a); else log(`Command not found: ${n}.`,'error');
+        }
+        commandInput.addEventListener('keydown', async (e) => {
+            if(audioReady&&e.key.length===1&&!e.ctrlKey&&!e.metaKey)keyClick.triggerAttack('C1'); if(e.key==='Enter'&&!isExecuting){const c=commandInput.value.trim();if(c)commandHistory.push(c);historyIndex=commandHistory.length;isExecuting=!0;inputLine.style.visibility='hidden';await processCommand(c);commandInput.value='';updateInputDisplay();isExecuting=!1;inputLine.style.visibility='visible';commandInput.focus()}else if(e.key==='ArrowUp'){e.preventDefault();if(commandHistory.length>0){historyIndex=Math.max(0,(historyIndex??commandHistory.length)-1);commandInput.value=commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='ArrowDown'){e.preventDefault();if(historyIndex<commandHistory.length){historyIndex=Math.min(commandHistory.length,historyIndex+1);commandInput.value=historyIndex===commandHistory.length?'':commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='Tab'){e.preventDefault();const i=commandInput.value.split(' ')[0],m=Object.keys(commands).filter(c=>c.startsWith(i));if(m.length===1){commandInput.value=m[0]+' ';updateInputDisplay()}else if(m.length>1){logRaw(`<span class="text-muted">${promptLabel.textContent.replace(/\s/g,'&nbsp;')} ${sanitizeHTML(commandInput.value)}</span>`);logRaw(m.join('  '))}}else{setTimeout(updateInputDisplay,0)}});
+        commandInput.addEventListener('input', updateInputDisplay); commandInput.addEventListener('focus', ()=>inputCursor.classList.remove('hidden')); commandInput.addEventListener('blur', ()=>inputCursor.classList.add('hidden'));
+        document.getElementById('close-preview-btn').addEventListener('click', ()=>appWindow.classList.add('hidden'));
+        
+        async function triggerKernelPanic() {
+            isExecuting = true;
+            inputLine.style.visibility = 'hidden';
+            let i = 0;
+            const panicInterval = setInterval(() => {
+                const err = `[${(Date.now() / 1000).toFixed(6)}] KERNEL PANIC: Segmentation fault at 0x${Math.random().toString(16).substring(2, 10)}. RMVBOT daemon exceeded rate limit.`;
+                logRaw(`<span class="text-error">${err}</span>`);
+                if (++i > 30) {
+                    clearInterval(panicInterval);
+                    log('--- SYSTEM HALTED ---', 'error');
+                }
+            }, 50);
+        }
+
+        // --- BOOT SEQUENCE & INITIALIZATION ---
+        let lastTime = 0, frameCount = 0;
+        function gameLoop(time) {
+            frameCount++; if(time - lastTime >= 1000){statusBarFps.textContent=`FPS: ${frameCount}`; frameCount=0; lastTime=time}
+            statusBarCpu.textContent = `CPU: ${(Math.random()*5+2).toFixed(1)}% [${navigator.hardwareConcurrency || 2} Cores]`;
+            requestAnimationFrame(gameLoop);
+        }
+        async function bootStep(text, delay = 50) { bootLog.textContent += text + '\n'; await sleep(delay); }
+        async function startBootSequence() {
+            loginTime = new Date();
+            bootLog.textContent = ''; await sleep(500);
+            await bootStep('RMV BIOS v9.0.1 ...'); await bootStep('Initializing USB Controllers ... OK');
+            await bootStep(`Memory Test: ${Math.pow(2, Math.floor(Math.random()*4+2))}GB OK`); await bootStep('Searching for bootable devices...');
+            await bootStep('Found (SATA): RMV_OS_v9_DISK ... Booting...'); await sleep(500);
+            await bootStep('Loading kernel v9.0-release ...'); await bootStep('Initializing filesystem ...');
+            await bootStep('Starting service audiod ... [OK]'); await bootStep('Starting service networkd ... [OK]');
+            await bootStep('Starting RMVBOT AI Daemon ... [OK]');
+            await bootStep('Starting shell ...'); await sleep(1000);
+            bootScreen.classList.add('hidden'); mainContent.classList.remove('hidden'); init();
+        }
+        function init() {
+            logOutput.innerHTML=''; logRaw(BANNER); log('RMV OS v9.0 loaded. Welcome.', 'success');
+            log("Type 'help' for commands, or 'ask' to talk to the AI.", 'info'); applyTheme(localStorage.getItem('terminalTheme')||'matrix');
+            updatePromptAndStatus(); commandInput.focus(); updateInputDisplay();
+            setInterval(() => {
+                const now = new Date();
+                statusBarTime.textContent=now.toLocaleTimeString('en-US');
+                statusBarDate.textContent=now.toLocaleDateString('en-US', {weekday:'short',year:'numeric',month:'short',day:'numeric'});
+            }, 1000);
+            requestAnimationFrame(gameLoop);
+        }
+        startBootSequence();
+    </script>
+</body>
+</html>
+
