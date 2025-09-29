@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>rmv.helper</title>
+    <title>RMV OS Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
@@ -38,24 +38,27 @@
         .dir { color: var(--accent); } .file { color: var(--foreground); }
 
         #boot-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 999; color: #fff; font-family: 'Courier New', Courier, monospace; }
-        #app-window {
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
-            animation: fadeInWindow 0.3s ease-out;
-        }
+        .window { animation: fadeInWindow 0.3s ease-out; }
         @keyframes fadeInWindow { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .resize-handle { position: absolute; bottom: 0; right: 0; width: 16px; height: 16px; cursor: nwse-resize; z-index: 10; }
+        .window-header { cursor: move; }
+        #editor-textarea { background-color: #1a1a1a; color: var(--foreground); font-family: 'Fira Code', monospace; border: 1px solid var(--border); resize: none; }
     </style>
 </head>
 <body class="flex h-screen p-2 sm:p-4">
+
+    <!-- BOOT SCREEN -->
     <div id="boot-screen" class="p-4">
         <pre id="boot-log"></pre>
     </div>
+
+    <!-- MAIN TERMINAL CONTENT -->
     <div id="main-content" class="flex flex-col h-full w-full bg-black/50 border border-[var(--border)] rounded-lg p-4 relative hidden">
         <header class="flex justify-between items-center pb-2 border-b border-[var(--border)] flex-shrink-0">
             <div class="flex items-center gap-2"><span class="w-3 h-3 bg-red-500 rounded-full"></span><span class="w-3 h-3 bg-yellow-500 rounded-full"></span><span class="w-3 h-3 bg-green-500 rounded-full"></span></div>
             <p class="text-sm text-gray-500">RMV OS :: shell</p>
             <div></div>
         </header>
-
         <div id="terminal" class="flex-1 my-2 overflow-y-auto pr-2" onclick="commandInput.focus()">
             <div id="log-output"></div>
             <div id="input-line" class="flex items-center">
@@ -66,7 +69,6 @@
                 </div>
             </div>
         </div>
-
         <footer id="status-bar" class="flex justify-between items-center pt-2 border-t border-[var(--border)] text-xs text-muted flex-shrink-0 flex-wrap gap-x-4">
             <div id="status-path" class="truncate">/home/user</div>
             <div class="flex-grow"></div>
@@ -79,8 +81,8 @@
     </div>
     
     <!-- App Window for Clone Preview -->
-    <div id="app-window" class="hidden absolute inset-0 m-auto w-11/12 h-5/6 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20">
-        <div class="bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg cursor-move">
+    <div id="app-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 h-5/6 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 300px; min-height: 200px;">
+        <div id="app-window-header" class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
             <div class="flex items-center gap-2">
                 <button id="close-preview-btn" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
                 <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
@@ -88,13 +90,34 @@
             </div>
             <span class="text-sm text-gray-400 font-mono" id="app-window-title">Web Browser</span>
             <div>
-                <button id="download-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
+                <button id="download-clone-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
             </div>
         </div>
         <div class="bg-gray-800 p-2"><input type="text" id="app-window-url" class="w-full bg-gray-900 text-gray-300 rounded px-2 py-1 text-sm" readonly></div>
-        <div class="flex-1 bg-white min-h-0"> <!-- FIX: Added min-h-0 for proper flex behavior -->
+        <div class="flex-1 bg-white min-h-0">
             <iframe id="result-frame" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
+        <div class="resize-handle"></div>
+    </div>
+
+    <!-- Code Editor Window -->
+    <div id="editor-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 400px; min-height: 300px;">
+        <div id="editor-window-header" class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+            <div class="flex items-center gap-2">
+                <button id="editor-close-btn" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <span class="text-sm text-gray-400 font-mono" id="editor-window-title">Code Editor</span>
+            <div class="flex gap-2">
+                <button id="editor-save-btn" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition duration-300">Save</button>
+                <button id="editor-download-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
+            </div>
+        </div>
+        <div class="flex-1 p-2 min-h-0">
+            <textarea id="editor-textarea" class="w-full h-full p-2 rounded focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"></textarea>
+        </div>
+        <div class="resize-handle"></div>
     </div>
 
 
@@ -108,16 +131,24 @@
               statusBarDate = document.getElementById('status-date'), statusBarCpu = document.getElementById('status-cpu'),
               statusBarGpu = document.getElementById('status-gpu'), statusBarFps = document.getElementById('status-fps'),
               mainContent = document.getElementById('main-content'), bootScreen = document.getElementById('boot-screen'),
-              bootLog = document.getElementById('boot-log'), appWindow = document.getElementById('app-window');
+              bootLog = document.getElementById('boot-log');
+        
+        // Window elements
+        const appWindow = document.getElementById('app-window');
+        const editorWindow = document.getElementById('editor-window');
+        const editorTextarea = document.getElementById('editor-textarea');
+        const editorWindowTitle = document.getElementById('editor-window-title');
         
         let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, currentUser = 'user', loginTime = new Date(), clonedHtmlContent = '';
         let processes = [ { pid: 1, user: 'root', cmd: 'init' }, { pid: 64, user: 'root', cmd: 'audiod' }, { pid: 72, user: 'user', cmd: 'shell' } ];
-        
+        let currentEditing = { path: null, filename: null };
+
         // --- AUDIO ---
         let keyClick, enterSound, errorSound;
         function initAudio() {
             if (audioReady) return;
             try {
+                Tone.start();
                 keyClick = new Tone.MembraneSynth({ pitchDecay: 0.008, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination();
                 enterSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination();
                 errorSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).toDestination();
@@ -128,9 +159,16 @@
         document.body.addEventListener('keydown', initAudio, { once: true });
 
         // --- SIMULATED FILESYSTEM ---
-        const fs = { 'home': { 'user': { 'documents': {}, 'readme.txt': 'Welcome to RMV OS v9!' } } };
+        const fs = { 'home': { 'user': { 'documents': {}, 'readme.txt': 'Welcome to RMV OS v9!\nUse `edit new-file.js` to start coding.' } } };
         let currentPath = ['home', 'user'];
-        const getPathObject = (path) => path.reduce((obj, part) => obj && obj[part], fs);
+        const getPathObject = (path) => {
+            let p = path;
+            if (path === null) return null;
+            if (typeof path === 'string') {
+                p = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
+            }
+            return p.reduce((obj, part) => obj && obj[part], fs);
+        }
         function updatePromptAndStatus() {
             const pathString = `/${currentPath.join('/')}`;
             const userColor = currentUser === 'root' ? 'error' : 'accent';
@@ -172,25 +210,66 @@
 
         // --- COMMANDS ---
         let commands = {
+            // Core & Navigation
             help: { description: 'Displays this help message.', execute: async () => { log('RMV OS Command List:', 'success'); let t='<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4">'; Object.keys(commands).sort().forEach(c=>t+=`<div><span class="text-success">${c.padEnd(12)}</span><span class="text-muted">${commands[c].description}</span></div>`); logRaw(t+'</div>')} },
             history: { description: 'Shows command history.', execute: () => logRaw(commandHistory.map((c,i)=>`<span class="text-muted">${String(i).padEnd(3)}</span> ${sanitizeHTML(c)}`).join('<br>')) },
-            ls: { description: 'Lists directory contents.', execute: async () => { const d=getPathObject(currentPath); if(!d)return log('Directory does not exist.','error');const e=Object.entries(d);if(e.length===0)return;logRaw(e.map(([n,c])=>typeof c==='object'?`<span class="dir">${n}/</span>`:`<span class="file">${n}</span>`).join('  '))} },
+            ls: { description: 'Lists directory contents. (alias: dir)', execute: async () => { const d=getPathObject(currentPath); if(!d)return log('Directory does not exist.','error');const e=Object.entries(d);if(e.length===0)return;logRaw(e.map(([n,c])=>typeof c==='object'?`<span class="dir">${n}/</span>`:`<span class="file">${n}</span>`).join('  '))} },
             cd: { description: 'Changes directory.', execute: async (a) => { const t=a[0]||'home/user';if(t==='..'){if(currentPath.length>1)currentPath.pop()}else{const p=t.startsWith('/')?t.substring(1).split('/'):[...currentPath,...t.split('/')];if(getPathObject(p))currentPath=p.filter(i=>i);else return log(`Path not found: ${t}`,'error')}updatePromptAndStatus()} },
-            mkdir: { description: 'Creates a new directory.', execute: async (a) => { const n=a[0];if(!n)return log('Directory name required.','error');const d=getPathObject(currentPath);if(d[n])return log('Name already exists.','error');d[n]={}} },
-            cat: { description: 'Displays file content.', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const c=getPathObject(currentPath)[n];if(typeof c!=='string')return log('Not a file or not found.','error');logRaw(`<pre class="text-gray-300">${sanitizeHTML(c)}</pre>`)} },
-            echo: { description: 'Creates a file with text.', execute: async (a) => { const s=a.join(' '),m=s.match(/(.*) > ([\w.-]+)/);if(!m)return log('Invalid format. Use: echo "text" > file.txt','error');const[,c,f]=m;getPathObject(currentPath)[f]=c.replace(/^"|"$/g,'')} },
-            passgen: { description: 'Generates a random password.', execute: async (a) => { const l=parseInt(a[0])||16,c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';let p='';for(let i=0;i<l;i++)p+=c.charAt(Math.floor(Math.random()*c.length));logRaw(`<span class="text-accent">${p}</span>`)} },
-            clear: { description: 'Clears the terminal screen.', execute: () => logOutput.innerHTML = '' },
+            clear: { description: 'Clears the terminal screen. (alias: cls)', execute: () => logOutput.innerHTML = '' },
             banner: { description: 'Displays the welcome banner.', execute: () => logRaw(BANNER) },
+            
+            // File Management
+            mkdir: { description: 'Creates a new directory.', execute: async (a) => { const n=a[0];if(!n)return log('Directory name required.','error');const d=getPathObject(currentPath);if(d[n])return log('Name already exists.','error');d[n]={}; log(`Directory '${n}' created.`, 'success')} },
+            cat: { description: 'Displays file content. (alias: type)', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const c=getPathObject(currentPath)[n];if(typeof c!=='string')return log('Not a file or not found.','error');logRaw(`<pre class="text-gray-300">${sanitizeHTML(c)}</pre>`)} },
+            echo: { description: 'Creates a file with text. Usage: echo "text" > file.txt', execute: async (a) => { const s=a.join(' '),m=s.match(/(.*) > ([\w.-]+)/);if(!m)return log('Invalid format. Use: echo "text" > file.txt','error');const[,c,f]=m;getPathObject(currentPath)[f]=c.replace(/^"|"$/g,'');log(`File '${f}' created/overwritten.`, 'success')} },
+            rm: { description: 'Deletes a file. (alias: del)', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const d=getPathObject(currentPath); if(d[n] === undefined) return log(`File not found: ${n}`, 'error'); if(typeof d[n] === 'object') return log('Cannot delete directory. Use rmdir.', 'error'); delete d[n]; log(`File '${n}' deleted.`, 'success'); } },
+            mv: { description: 'Moves or renames a file. (alias: ren)', execute: async (a) => { const [s, d] = a; if(!s || !d) return log('Usage: mv <source> <destination>', 'error'); const dir = getPathObject(currentPath); if(dir[s] === undefined) return log(`Source file not found: ${s}`, 'error'); if(dir[d] !== undefined) return log(`Destination already exists: ${d}`, 'error'); dir[d] = dir[s]; delete dir[s]; log(`Renamed/moved '${s}' to '${d}'.`, 'success');}},
+
+            // Coding & Development
+            edit: { 
+                description: 'Creates or edits a file in the code editor.', 
+                execute: async (a) => {
+                    const filename = a[0];
+                    if(!filename) return log('Filename required. Usage: edit <filename>', 'error');
+                    
+                    currentEditing = { path: [...currentPath], filename: filename };
+                    const fileContent = getPathObject(currentEditing.path)[currentEditing.filename];
+
+                    editorWindowTitle.textContent = `edit - /${currentEditing.path.join('/')}/${filename}`;
+                    editorTextarea.value = (typeof fileContent === 'string') ? fileContent : '';
+                    editorWindow.classList.remove('hidden');
+                    editorTextarea.focus();
+                }
+            },
+            
+            // System & Info
             date: { description: 'Shows current date and time.', execute: async () => log(new Date().toLocaleString('en-US')) },
-            theme: { description: 'Changes the UI theme.', execute: (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
             reboot: { description: 'Reboots the OS.', execute: () => { mainContent.classList.add('hidden'); bootScreen.classList.remove('hidden'); startBootSequence(); } },
             whoami: { description: 'Shows the current user.', execute: () => log(currentUser) },
             ps: { description: 'Lists running processes.', execute: () => { let t='<pre><span class="text-accent">PID   USER      COMMAND</span>\n'; processes.forEach(p=>t+=`${String(p.pid).padEnd(5)} ${p.user.padEnd(9)} ${p.cmd}\n`); logRaw(t+'</pre>') } },
             kill: { description: 'Terminates a process.', execute: async(a) => { const id=parseInt(a[0]);if(!id)return log('PID required.','error');if(id===1||id===72)return log('Access denied.','error');const i=processes.findIndex(p=>p.pid===id);if(i===-1)return log(`Process not found: ${id}`,'error');log(`Process ${processes[i].cmd} (PID ${id}) terminated.`,'success');processes.splice(i,1)} },
             sudo: { description: 'Run command as root.', execute: async(a) => { if(currentUser==='root') return log('Already root.'); logRaw(`[sudo] password for ${currentUser}: `); inputLine.style.visibility='hidden'; await sleep(1500); inputLine.style.visibility='visible'; logRaw('Sorry, try again.');} },
+            systeminfo: { description: 'Displays detailed system information.', execute: async() => { logRaw(`<pre class="text-gray-300">
+  <span class="text-accent">Host Name:</span>             RMV-OS-PRO
+  <span class="text-accent">OS Name:</span>               RMV OS Version 9.1 Pro
+  <span class="text-accent">OS Version:</span>            9.1.2024
+  <span class="text-accent">Processor(s):</span>          1 Processor(s) Installed. [${navigator.hardwareConcurrency} Cores]
+  <span class="text-accent">System Language:</span>       ${navigator.language}
+  <span class="text-accent">Screen Resolution:</span>     ${window.screen.width}x${window.screen.height}
+  <span class="text-accent">Browser Engine:</span>        ${navigator.vendor}
+  </pre>`);}},
+            
+            // Network & AI
+            ipconfig: { description: 'Displays network configuration.', execute: async () => { logRaw(`<pre>
+Ethernet adapter Local Area Connection:
+  <span class="text-muted">Connection-specific DNS Suffix  . : home</span>
+  <span class="text-muted">IPv4 Address. . . . . . . . . . . : 192.168.1.101</span>
+  <span class="text-muted">Subnet Mask . . . . . . . . . . . : 255.255.255.0</span>
+  <span class="text-muted">Default Gateway . . . . . . . . . : 192.168.1.1</span>
+</pre>`);}},
+            ping: { description:'Pings a host.', execute:async a=>{const h=a[0]||"google.com";log(`Pinging ${h}...`);for(let i=0;i<4;i++){const s=Date.now();log(`Reply from ${h}: time=${Math.floor(Math.random()*40+10)}ms`);await sleep(500)}}},
             clone: {
-                description:'Clones a website.',
+                description:'Clones a website for preview.',
                 execute: async a=>{
                     const u=a[0];if(!u)return log('URL required.','error');
                     log(`Cloning ${u}...`);
@@ -201,15 +280,10 @@
                         clonedHtmlContent = c; // Save content for download
                         log(`Success (${(c.length/1024).toFixed(2)} KB). Processing HTML...`,'success');
                         const baseTag = `<base href="${new URL(u).origin}/">`;
-                        if (c.includes('<head>')) {
-                            c = c.replace(/<head>/i, `<head>${baseTag}`);
-                        } else {
-                            c = baseTag + c;
-                        }
-                        const appUrl = document.getElementById('app-window-url');
-                        const iframe = document.getElementById('result-frame');
-                        appUrl.value = u;
-                        iframe.srcdoc = c;
+                        c = c.includes('<head>') ? c.replace(/<head>/i, `<head>${baseTag}`) : baseTag + c;
+                        
+                        document.getElementById('app-window-url').value = u;
+                        document.getElementById('result-frame').srcdoc = c;
                         appWindow.classList.remove('hidden');
                     } catch(e) { log(`Failed: ${e.message}`, 'error'); }
                 }
@@ -217,83 +291,35 @@
             ask: {
                 description: 'Ask RMVBOT AI. Usage: ask <prompt>',
                 execute: async (args) => {
-                    const prompt = args.join(' ');
-                    if (!prompt) return log('Prompt cannot be empty.', 'error');
-                    const API_KEY = 'AIzaSyAseLVSPClUqnn9BPHEjSxLDDAJvyqAOwk';
+                    const prompt = args.join(' '); if (!prompt) return log('Prompt cannot be empty.', 'error');
+                    const API_KEY = 'AIzaSyAseLVSPClUqnn9BPHEjSxLDDAJvyqAOwk'; // This is a placeholder
                     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
                     
                     log('RMVBOT is thinking...', 'info');
                     try {
-                        const response = await fetch(API_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                        });
-
-                        if (!response.ok) {
-                           if (response.status === 429) {
-                                triggerKernelPanic();
-                                return;
-                           }
-                           throw new Error(`API Error: ${response.status}`);
-                        }
+                        const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                        if (!response.ok) { if (response.status === 429) { triggerKernelPanic(); return; } throw new Error(`API Error: ${response.status}`); }
                         const data = await response.json();
                         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (text) {
-                            logRaw(`<div class="p-2 border-l-2 border-primary my-2"><span class="text-success">[RMVBOT]</span><br>${sanitizeHTML(text).replace(/\n/g, '<br>')}</div>`);
-                        } else { throw new Error('Invalid response from API.'); }
+                        if (text) { logRaw(`<div class="p-2 border-l-2 border-primary my-2"><span class="text-success">[RMVBOT]</span><br>${sanitizeHTML(text).replace(/\n/g, '<br>')}</div>`); } 
+                        else { throw new Error('Invalid response from API.'); }
                     } catch (e) { log(`Failed to contact RMVBOT: ${e.message}`, 'error'); }
                 }
             },
-            audit: {
-                description: 'Runs a passive security audit on a URL.',
-                execute: async (args) => {
-                    const url = args[0]; if(!url) return log('URL required.', 'error');
-                    log(`Starting passive audit for ${url}...`);
-                    try {
-                        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-                        if(!res.ok) throw Error(`HTTP Error: ${res.status}`);
-                        log('Fetching headers...', 'info');
-                        const headers = {};
-                        res.headers.forEach((val, key) => headers[key.toLowerCase()] = val);
-                        
-                        // Check Security Headers
-                        log('Analyzing security headers...', 'info');
-                        const secHeaders = {'content-security-policy':'critical','x-frame-options':'high','x-content-type-options':'medium','strict-transport-security':'high'};
-                        for(const h in secHeaders) {
-                            if(headers[h]) log(`[${secHeaders[h]}] Found header: ${h}`, 'success');
-                            else log(`[${secHeaders[h]}] Missing header: ${h}`, 'warning');
-                        }
-
-                        // Check Cookies
-                        log('Analyzing cookies...', 'info');
-                        if (headers['set-cookie']) {
-                            const cookies = Array.isArray(headers['set-cookie']) ? headers['set-cookie'] : [headers['set-cookie']];
-                            cookies.forEach(c => {
-                                if(!/HttpOnly/i.test(c)) log('[high] Cookie missing HttpOnly flag.', 'warning');
-                                if(!/Secure/i.test(c)) log('[medium] Cookie missing Secure flag.', 'warning');
-                            });
-                        } else { log('No cookies set in response.', 'success'); }
-
-                        log('Analyzing HTML source for potential exposures...', 'info');
-                        const html = await res.text();
-                        const apiKeyRegex = /(['"](api_key|authorization_token|access_token)['"]\s*:\s*['"]([a-zA-Z0-9-_.]{16,})['"])/ig;
-                        const matches = html.match(apiKeyRegex);
-                        if (matches) {
-                            log(`[CRITICAL] Found ${matches.length} potential API key pattern(s) exposed in HTML source!`, 'error');
-                            logRaw(`<pre class="text-error">${sanitizeHTML(matches[0])}...</pre>`);
-                        } else {
-                            log('No obvious API key patterns found in source.', 'success');
-                        }
-
-                        log('Audit complete.', 'success');
-                    } catch (e) { log(`Audit failed: ${e.message}`, 'error'); }
-                }
-            },
+            audit: { description: 'Runs a passive security audit on a URL.', execute: async (a) => { const u=a[0];if(!u)return log('URL required.','error');log(`Starting passive audit for ${u}...`);try{const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`);if(!r.ok)throw Error(`HTTP Error: ${r.status}`);log('Analyzing security headers...','info');const h={};r.headers.forEach((v,k)=>h[k.toLowerCase()]=v);const s={'content-security-policy':'critical','x-frame-options':'high','x-content-type-options':'medium','strict-transport-security':'high'};for(const e in s){h[e]?log(`[${s[e]}] Found header: ${e}`,'success'):log(`[${s[e]}] Missing header: ${e}`,'warning')}log('Audit complete.','success')}catch(e){log(`Audit failed: ${e.message}`,'error')}}},
+            
+            // UI & Fun
+            theme: { description: 'Changes the UI theme.', execute: (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
+            neofetch: {d:'Shows system info.',e:async()=>{ const u=navigator.userAgent,o=u.includes("Win")?"Windows":u.includes("Mac")?"MacOS":"Linux"; const uptime = ((new Date() - loginTime) / 1000 / 60).toFixed(0) + " mins"; logRaw(`<pre><span class="text-success">${currentUser}@rmv</span>\n-------\n<span class="text-success">OS:</span> ${o}\n<span class="text-success">Uptime:</span> ${uptime}\n<span class="text-success">Login:</span> ${loginTime.toLocaleString()}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},
+            passgen: { description: 'Generates a random password.', execute: async (a) => { const l=parseInt(a[0])||16,c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';let p='';for(let i=0;i<l;i++)p+=c.charAt(Math.floor(Math.random()*c.length));logRaw(`<span class="text-accent">${p}</span>`)} },
+            matrix: {d:'Digital Rain effect.',e:async()=>{const c=document.createElement('canvas');c.id='matrix-canvas';c.style.position='fixed';c.style.top=0;c.style.left=0;c.style.zIndex=998;document.body.appendChild(c);const x=c.getContext('2d');c.width=window.innerWidth;c.height=window.innerHeight;const l='アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン',f=18,o=c.width/f,d=Array(Math.floor(o)).fill(1);let i;function w(){x.fillStyle='rgba(0,0,0,0.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary');x.font=`${f}px monospace`;for(let t=0;t<d.length;t++){const e=l[Math.floor(Math.random()*l.length)];x.fillText(e,t*f,d[t]*f);d[t]*f>c.height&&Math.random()>.975&&(d[t]=0);d[t]++}}i=setInterval(w,40);const s=()=>{clearInterval(i);document.body.removeChild(c);window.removeEventListener('keydown',s,{once:true});window.removeEventListener('click',s,{once:true})};window.addEventListener('keydown',s,{once:true});window.addEventListener('click',s,{once:true})}}
         };
-        const legacyCommands = {"ping":{d:'Pings a host.',e:async a=>{const h=a[0];if(!h)return log('Host required.','error');log(`Pinging ${h}...`);for(let i=0;i<4;i++){const s=Date.now();try{await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`http://${h}`)}`,{mode:'no-cors',cache:'no-store'})}catch(e){}
-log(`Reply from ${h}: time=${Date.now()-s}ms`);await sleep(500)}}},"neofetch":{d:'Shows system info.',e:async()=>{ const u=navigator.userAgent,o=u.includes("Win")?"Windows":u.includes("Mac")?"MacOS":"Linux"; const uptime = ((new Date() - loginTime) / 1000 / 60).toFixed(0) + " mins"; logRaw(`<pre><span class="text-success">${currentUser}@rmv</span>\n-------\n<span class="text-success">OS:</span> ${o}\n<span class="text-success">Uptime:</span> ${uptime}\n<span class="text-success">Login:</span> ${loginTime.toLocaleString()}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},"matrix":{d:'Digital Rain effect.',e:async()=>{const c=document.getElementById('matrix-canvas'),x=c.getContext('2d');c.style.display='block';c.width=window.innerWidth;c.height=window.innerHeight;const l='アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン',f=18,o=c.width/f,d=Array(Math.floor(o)).fill(1);let i;function w(){x.fillStyle='rgba(0,0,0,0.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary');x.font=`${f}px monospace`;for(let t=0;t<d.length;t++){const e=l[Math.floor(Math.random()*l.length)];x.fillText(e,t*f,d[t]*f);d[t]*f>c.height&&Math.random()>.975&&(d[t]=0);d[t]++}}i=setInterval(w,40);const s=()=>{clearInterval(i);c.style.display='none';window.removeEventListener('keydown',s);window.removeEventListener('click',s)};window.addEventListener('keydown',s);window.addEventListener('click',s)}}}
-        Object.entries(legacyCommands).forEach(([n,c])=>commands[n]={description:c.d, execute:c.e});
+        // Command Aliases
+        commands.dir = { description: commands.ls.description, execute: commands.ls.execute };
+        commands.cls = { description: commands.clear.description, execute: commands.clear.execute };
+        commands.type = { description: commands.cat.description, execute: commands.cat.execute };
+        commands.del = { description: commands.rm.description, execute: commands.rm.execute };
+        commands.ren = { description: commands.mv.description, execute: commands.mv.execute };
 
         // --- MAIN LOGIC & EVENT LISTENERS ---
         function updateInputDisplay() { const v=commandInput.value, p=commandInput.selectionStart; inputTextBefore.textContent=v.substring(0,p); inputTextAfter.textContent=v.substring(p); inputCursor.scrollIntoView({block:'nearest'}); }
@@ -304,73 +330,127 @@ log(`Reply from ${h}: time=${Date.now()-s}ms`);await sleep(500)}}},"neofetch":{d
             if(audioReady&&e.key.length===1&&!e.ctrlKey&&!e.metaKey)keyClick.triggerAttack('C1'); if(e.key==='Enter'&&!isExecuting){const c=commandInput.value.trim();if(c)commandHistory.push(c);historyIndex=commandHistory.length;isExecuting=!0;inputLine.style.visibility='hidden';await processCommand(c);commandInput.value='';updateInputDisplay();isExecuting=!1;inputLine.style.visibility='visible';commandInput.focus()}else if(e.key==='ArrowUp'){e.preventDefault();if(commandHistory.length>0){historyIndex=Math.max(0,(historyIndex??commandHistory.length)-1);commandInput.value=commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='ArrowDown'){e.preventDefault();if(historyIndex<commandHistory.length){historyIndex=Math.min(commandHistory.length,historyIndex+1);commandInput.value=historyIndex===commandHistory.length?'':commandHistory[historyIndex];commandInput.setSelectionRange(commandInput.value.length,commandInput.value.length);updateInputDisplay()}}else if(e.key==='Tab'){e.preventDefault();const i=commandInput.value.split(' ')[0],m=Object.keys(commands).filter(c=>c.startsWith(i));if(m.length===1){commandInput.value=m[0]+' ';updateInputDisplay()}else if(m.length>1){logRaw(`<span class="text-muted">${promptLabel.textContent.replace(/\s/g,'&nbsp;')} ${sanitizeHTML(commandInput.value)}</span>`);logRaw(m.join('  '))}}else{setTimeout(updateInputDisplay,0)}});
         commandInput.addEventListener('input', updateInputDisplay); commandInput.addEventListener('focus', ()=>inputCursor.classList.remove('hidden')); commandInput.addEventListener('blur', ()=>inputCursor.classList.add('hidden'));
         
+        // Window close buttons
         document.getElementById('close-preview-btn').addEventListener('click', ()=>appWindow.classList.add('hidden'));
-        
-        document.getElementById('download-btn').addEventListener('click', () => {
-             if (!clonedHtmlContent) return alert('No content to download.');
-             const blob = new Blob([clonedHtmlContent], { type: 'text/html' });
+        document.getElementById('editor-close-btn').addEventListener('click', ()=>editorWindow.classList.add('hidden'));
+
+        // Editor buttons
+        document.getElementById('editor-save-btn').addEventListener('click', () => {
+            if (!currentEditing.filename) return;
+            const dir = getPathObject(currentEditing.path);
+            if(dir) {
+                dir[currentEditing.filename] = editorTextarea.value;
+                log(`File '${currentEditing.filename}' saved successfully.`, 'success');
+            } else {
+                log(`Error: Path /${currentEditing.path.join('/')} no longer exists.`, 'error');
+            }
+        });
+
+        const downloadFile = (content, filename, contentType) => {
+             const blob = new Blob([content], { type: contentType });
              const url = URL.createObjectURL(blob);
              const a = document.createElement('a');
+             a.href = url;
+             a.download = filename;
+             document.body.appendChild(a); a.click(); document.body.removeChild(a);
+             URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('editor-download-btn').addEventListener('click', () => {
+            const content = editorTextarea.value;
+            const filename = currentEditing.filename || 'new-file.txt';
+            downloadFile(content, filename, 'text/plain');
+        });
+
+        document.getElementById('download-clone-btn').addEventListener('click', () => {
+             if (!clonedHtmlContent) return;
              let filename = 'cloned-site.html';
              try {
                 const urlObject = new URL(document.getElementById('app-window-url').value);
                 filename = `${urlObject.hostname.replace('www.', '')}.html`;
              } catch (e) { /* use default */ }
-             a.href = url;
-             a.download = filename;
-             document.body.appendChild(a);
-             a.click();
-             document.body.removeChild(a);
-             URL.revokeObjectURL(url);
+             downloadFile(clonedHtmlContent, filename, 'text/html');
         });
+
+        // --- WINDOW DRAGGING & RESIZING ---
+        function makeInteractive(element) {
+            const header = element.querySelector('.window-header');
+            const resizeHandle = element.querySelector('.resize-handle');
+            let isDragging = false, isResizing = false;
+            let initial = {};
+
+            const onDrag = (e) => {
+                if(!isDragging) return;
+                element.style.left = `${initial.elX + e.clientX - initial.mouseX}px`;
+                element.style.top = `${initial.elY + e.clientY - initial.mouseY}px`;
+            };
+            const onResize = (e) => {
+                if(!isResizing) return;
+                element.style.width = `${initial.elW + e.clientX - initial.mouseX}px`;
+                element.style.height = `${initial.elH + e.clientY - initial.mouseY}px`;
+            };
+            const stopInteraction = () => {
+                isDragging = false; isResizing = false;
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('mousemove', onResize);
+                document.removeEventListener('mouseup', stopInteraction);
+            };
+
+            if (header) {
+                header.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    initial = { mouseX: e.clientX, mouseY: e.clientY, elX: element.offsetLeft, elY: element.offsetTop };
+                    // Remove translate to switch to top/left positioning
+                    element.style.transform = ''; 
+                    document.addEventListener('mousemove', onDrag);
+                    document.addEventListener('mouseup', stopInteraction, { once: true });
+                });
+            }
+
+            if (resizeHandle) {
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // prevent drag from firing
+                    isResizing = true;
+                    initial = { mouseX: e.clientX, mouseY: e.clientY, elW: element.offsetWidth, elH: element.offsetHeight };
+                    document.addEventListener('mousemove', onResize);
+                    document.addEventListener('mouseup', stopInteraction, { once: true });
+                });
+            }
+        }
         
         async function triggerKernelPanic() {
-            isExecuting = true;
-            inputLine.style.visibility = 'hidden';
-            let i = 0;
-            const panicInterval = setInterval(() => {
-                const err = `[${(Date.now() / 1000).toFixed(6)}] KERNEL PANIC: Segmentation fault at 0x${Math.random().toString(16).substring(2, 10)}. RMVBOT daemon exceeded rate limit.`;
-                logRaw(`<span class="text-error">${err}</span>`);
-                if (++i > 30) {
-                    clearInterval(panicInterval);
-                    log('--- SYSTEM HALTED ---', 'error');
-                }
-            }, 50);
+            isExecuting = true; inputLine.style.visibility = 'hidden';
+            let i=0; const pI=setInterval(()=>{logRaw(`<span class="text-error">[${(Date.now()/1000).toFixed(6)}] KERNEL PANIC: Segmentation fault. RMVBOT daemon exceeded rate limit.</span>`);if(++i > 30){clearInterval(pI);log('--- SYSTEM HALTED ---','error')}},50);
         }
 
         // --- BOOT SEQUENCE & INITIALIZATION ---
         let lastTime = 0, frameCount = 0;
         function gameLoop(time) {
             frameCount++; if(time - lastTime >= 1000){statusBarFps.textContent=`FPS: ${frameCount}`; frameCount=0; lastTime=time}
-            statusBarCpu.textContent = `CPU: ${(Math.random()*5+2).toFixed(1)}% [${navigator.hardwareConcurrency || 2} Cores]`;
-            requestAnimationFrame(gameLoop);
+            statusBarCpu.textContent = `CPU: ${(Math.random()*5+2).toFixed(1)}%`; requestAnimationFrame(gameLoop);
         }
         async function bootStep(text, delay = 50) { bootLog.textContent += text + '\n'; await sleep(delay); }
         async function startBootSequence() {
-            loginTime = new Date();
-            bootLog.textContent = ''; await sleep(500);
-            await bootStep('RMV BIOS v9.0.1 ...'); await bootStep('Initializing USB Controllers ... OK');
+            loginTime = new Date(); bootLog.textContent = ''; await sleep(500);
+            await bootStep('RMV BIOS v9.1.PRO ...'); await bootStep('Initializing USB Controllers ... OK');
             await bootStep(`Memory Test: ${Math.pow(2, Math.floor(Math.random()*4+2))}GB OK`); await bootStep('Searching for bootable devices...');
-            await bootStep('Found (SATA): RMV_OS_v9_DISK ... Booting...'); await sleep(500);
-            await bootStep('Loading kernel v9.0-release ...'); await bootStep('Initializing filesystem ...');
+            await bootStep('Found (SATA): RMV_OS_PRO_DISK ... Booting...'); await sleep(500);
+            await bootStep('Loading kernel v9.1-release ...'); await bootStep('Initializing filesystem ...');
             await bootStep('Starting service audiod ... [OK]'); await bootStep('Starting service networkd ... [OK]');
             await bootStep('Starting RMVBOT AI Daemon ... [OK]');
             await bootStep('Starting shell ...'); await sleep(1000);
             bootScreen.classList.add('hidden'); mainContent.classList.remove('hidden'); init();
         }
         function init() {
-            logOutput.innerHTML=''; logRaw(BANNER); log('RMV OS v9.0 loaded. Welcome.', 'success');
-            log("Type 'help' for commands, or 'ask' to talk to the AI.", 'info'); applyTheme(localStorage.getItem('terminalTheme')||'matrix');
+            logOutput.innerHTML=''; logRaw(BANNER); log('RMV OS v9.1 Pro loaded. Welcome.', 'success');
+            log("Type 'help' for commands, 'ask' for AI, or 'edit <file>' to code.", 'info'); applyTheme(localStorage.getItem('terminalTheme')||'matrix');
             updatePromptAndStatus(); commandInput.focus(); updateInputDisplay();
-            setInterval(() => {
-                const now = new Date();
-                statusBarTime.textContent=now.toLocaleTimeString('en-US');
-                statusBarDate.textContent=now.toLocaleDateString('en-US', {weekday:'short',year:'numeric',month:'short',day:'numeric'});
-            }, 1000);
+            setInterval(() => { const n=new Date(); statusBarTime.textContent=n.toLocaleTimeString('en-US'); statusBarDate.textContent=n.toLocaleDateString('en-US', {weekday:'short',year:'numeric',month:'short',day:'numeric'}); }, 1000);
             requestAnimationFrame(gameLoop);
+            makeInteractive(appWindow);
+            makeInteractive(editorWindow);
         }
         startBootSequence();
     </script>
 </body>
 </html>
-
