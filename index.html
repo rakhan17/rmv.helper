@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -52,6 +52,40 @@
         .syn-tag { color: #82aaff; }
         .syn-attr { color: #ffcb6b; }
         .syn-value { color: #c3e88d; }
+        
+        /* --- BROWSER & NETWORK STYLES --- */
+        #browser-window, #network-center-window {
+            background-color: #0d1117;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 25px var(--glow);
+        }
+        .browser-chrome, .net-chrome {
+             background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+             background-size: 20px 20px;
+        }
+        .browser-tabs-container { display: flex; align-items: flex-end; padding: 0 8px; background-color: #161b22; }
+        .browser-tab { display: flex; align-items: center; background-color: #010409; border: 1px solid var(--border); border-bottom: none; padding: 6px 12px; margin-right: -1px; border-radius: 6px 6px 0 0; cursor: pointer; color: #8b949e; max-width: 200px; }
+        .browser-tab.active { background-color: #0d1117; border-color: var(--primary); color: var(--foreground); box-shadow: 0 -5px 10px -5px var(--glow); position: relative; z-index: 2; }
+        .browser-tab-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .browser-tab-close { margin-left: 8px; border: none; background: none; color: #8b949e; font-weight: bold; padding: 0 4px; border-radius: 4px; }
+        .browser-tab-close:hover { background-color: rgba(255,255,255,0.1); color: white; }
+        .add-tab-btn { background: none; border: none; color: var(--primary); font-size: 1.5rem; padding: 0 8px; cursor: pointer; }
+
+        #browser-url-bar { background-color: #010409; border: 1px solid var(--primary); transition: box-shadow 0.3s; }
+        #browser-url-bar:focus { box-shadow: 0 0 15px var(--glow); }
+        .browser-nav-btn { background: none; border: none; font-size: 1.2rem; color: var(--primary); transition: text-shadow 0.3s; }
+        .browser-nav-btn:hover:not(:disabled) { text-shadow: 0 0 10px var(--primary); }
+        .bookmark-btn { background-color: rgba(0, 255, 65, 0.1); border: 1px solid rgba(0, 255, 65, 0.3); color: var(--primary); transition: all 0.2s; }
+        .bookmark-btn:hover { background-color: rgba(0, 255, 65, 0.2); box-shadow: 0 0 5px var(--glow); }
+        .security-toggle { appearance: none; width: 36px; height: 20px; background-color: #4b5563; border-radius: 9999px; position: relative; cursor: pointer; transition: background-color 0.2s ease-in-out; }
+        .security-toggle::before { content: ''; position: absolute; width: 16px; height: 16px; background-color: white; border-radius: 9999px; top: 2px; left: 2px; transition: transform 0.2s ease-in-out; }
+        .security-toggle:checked { background-color: var(--primary); }
+        .security-toggle:checked::before { transform: translateX(16px); }
+        .browser-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; text-shadow: none; }
+        
+        /* Network Center Specific */
+        #speed-gauge { transition: transform 0.5s ease-out; }
+        #net-log { font-size: 10px; height: 100px; overflow-y: scroll; background: #010409; border: 1px solid var(--border); padding: 4px; }
     </style>
 </head>
 <body class="flex h-screen p-2 sm:p-4">
@@ -89,26 +123,6 @@
         </footer>
     </div>
     
-    <!-- App Window for Clone Preview -->
-    <div id="app-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 h-5/6 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 300px; min-height: 200px;">
-        <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
-            <div class="flex items-center gap-2">
-                <button onclick="this.closest('.window').classList.add('hidden')" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
-                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-            </div>
-            <span class="text-sm text-gray-400 font-mono">Web Browser</span>
-            <div>
-                <button id="download-clone-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition duration-300">Download</button>
-            </div>
-        </div>
-        <div class="bg-gray-800 p-2"><input type="text" id="app-window-url" class="w-full bg-gray-900 text-gray-300 rounded px-2 py-1 text-sm" readonly></div>
-        <div class="flex-1 bg-white min-h-0">
-            <iframe id="result-frame" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin"></iframe>
-        </div>
-        <div class="resize-handle"></div>
-    </div>
-
     <!-- Code Editor Window -->
     <div id="editor-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gray-800 border border-[var(--border)] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 400px; min-height: 300px;">
         <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
@@ -145,6 +159,98 @@
         </div>
         <div class="resize-handle"></div>
     </div>
+    
+    <!-- Secure Browser Window -->
+    <div id="browser-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-11/12 h-5/6 bg-[#1a1a1a] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-width: 500px; min-height: 400px;">
+        <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+            <div class="flex items-center gap-2">
+                <button onclick="closeBrowser()" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <span class="text-sm text-gray-400 font-mono">Secure Browser</span>
+            <div></div>
+        </div>
+        <div class="browser-chrome">
+            <!-- Browser Tabs -->
+            <div class="browser-tabs-container">
+                <div id="browser-tabs-list" class="flex"></div>
+                <button id="add-tab-btn" class="add-tab-btn" title="New Tab">+</button>
+            </div>
+            <!-- Browser Controls -->
+            <div class="bg-gray-800 p-2 flex items-center gap-2 border-b border-t border-[var(--border)]">
+                <button id="browser-back-btn" class="px-2 py-1 text-lg rounded browser-nav-btn" title="Back">◄</button>
+                <button id="browser-forward-btn" class="px-2 py-1 text-lg rounded browser-nav-btn" title="Forward">►</button>
+                <button id="browser-reload-btn" class="px-2 py-1 text-lg rounded browser-nav-btn" title="Reload">↻</button>
+                <button id="browser-home-btn" class="px-2 py-1 text-lg rounded browser-nav-btn" title="Home">⌂</button>
+                <input type="text" id="browser-url-bar" class="flex-1 bg-gray-900 text-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]" placeholder="Enter URL or search RemoveEngine...">
+            </div>
+            <!-- Bookmarks Bar -->
+            <div class="bg-gray-800 px-2 pb-2 flex items-center gap-2 text-xs border-b border-[var(--border)]">
+                <button class="px-2 py-1 bookmark-btn rounded" data-url="remove-engine:home">RemoveEngine</button>
+                <button class="px-2 py-1 bookmark-btn rounded" data-url="hidden-wiki.terminal">Hidden Wiki</button>
+                <button class="px-2 py-1 bookmark-btn rounded" data-url="terminal-forums.org">TerminalForums</button>
+                <button class="px-2 py-1 bookmark-btn rounded" data-url="sentience-watch.org">Sentience Watch</button>
+            </div>
+        </div>
+        <div class="flex-1 bg-gray-800 min-h-0">
+            <iframe id="browser-frame" class="w-full h-full border-none" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+        </div>
+        <div class="resize-handle"></div>
+    </div>
+    
+    <!-- Network Center Window -->
+    <div id="network-center-window" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 max-w-2xl bg-[#1a1a1a] rounded-lg flex flex-col z-20 window shadow-2xl" style="min-height: 400px;">
+         <div class="window-header bg-gray-900 px-4 py-2 flex justify-between items-center rounded-t-lg">
+            <div class="flex items-center gap-2">
+                <button onclick="this.closest('.window').classList.add('hidden')" class="w-3 h-3 bg-red-500 rounded-full hover:bg-red-600"></button>
+                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            <span class="text-sm text-gray-400 font-mono">Network Center</span>
+            <div></div>
+        </div>
+        <div class="net-chrome p-4 flex-1 overflow-y-auto">
+            <h2 class="text-lg text-accent border-b border-border pb-2 mb-4">Security Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <!-- Left Panel -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="net-vpn-toggle" class="font-bold">VPN</label>
+                        <input type="checkbox" id="net-vpn-toggle" class="security-toggle">
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <label for="net-dual-toggle" class="font-bold">Dual-Layer Security</label>
+                        <input type="checkbox" id="net-dual-toggle" class="security-toggle">
+                    </div>
+                    <div class="bg-black/30 p-2 rounded">
+                        <p>Status: <span id="net-status" class="font-bold text-red-500">UNSECURED</span></p>
+                        <p>IP Address: <span id="net-ip" class="font-mono">192.168.1.101</span></p>
+                        <p>Location: <span id="net-location">Jakarta, ID</span></p>
+                    </div>
+                </div>
+                <!-- Right Panel -->
+                <div class="bg-black/30 p-2 rounded">
+                    <p class="font-bold text-center mb-1">Connection Log</p>
+                    <div id="net-log" class="text-green-400 font-mono leading-tight"></div>
+                </div>
+            </div>
+            <h2 class="text-lg text-accent border-b border-border pb-2 my-4">Speed Test</h2>
+            <div class="flex flex-col items-center">
+                 <div class="relative w-48 h-24 overflow-hidden mb-2">
+                    <div class="absolute w-full h-full border-4 border-gray-600 rounded-t-full border-b-0"></div>
+                    <div id="speed-gauge" class="absolute bottom-0 left-1/2 w-1 h-24 bg-red-500 transition-transform duration-500 origin-bottom" style="transform: rotate(-90deg);"></div>
+                </div>
+                <button id="speed-test-btn" class="px-4 py-2 bookmark-btn rounded">Run Speed Test</button>
+                <div class="flex justify-around w-full mt-4 text-center">
+                    <div><p class="text-muted text-xs">PING</p><p id="speed-ping" class="font-bold text-lg">--</p></div>
+                    <div><p class="text-muted text-xs">DOWNLOAD</p><p id="speed-download" class="font-bold text-lg">--</p></div>
+                    <div><p class="text-muted text-xs">UPLOAD</p><p id="speed-upload" class="font-bold text-lg">--</p></div>
+                </div>
+            </div>
+        </div>
+        <div class="resize-handle"></div>
+    </div>
 
 
     <script>
@@ -159,16 +265,23 @@
               mainContent = document.getElementById('main-content'), bootScreen = document.getElementById('boot-screen'),
               bootLog = document.getElementById('boot-log');
         
-        const appWindow = document.getElementById('app-window'), editorWindow = document.getElementById('editor-window'), runWindow = document.getElementById('run-window'),
+        const editorWindow = document.getElementById('editor-window'), runWindow = document.getElementById('run-window'),
+              browserWindow = document.getElementById('browser-window'), networkCenterWindow = document.getElementById('network-center-window'),
               editorTextarea = document.getElementById('editor-textarea'), editorWindowTitle = document.getElementById('editor-window-title');
         
-        let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, loginTime = new Date(), clonedHtmlContent = '';
+        let isExecuting = false, commandHistory = [], historyIndex, audioReady = false, loginTime = new Date();
         let processes = [ { pid: 1, user: 'root', cmd: 'init' }, { pid: 64, user: 'root', cmd: 'audiod' }, { pid: 72, user: 'user', cmd: 'shell' } ];
         let currentEditing = { path: null, filename: null };
         let users = { 'user': { home: ['home', 'user'] }, 'root': { home: ['home', 'root'] } };
         let currentUser = 'user';
         let isMeltdownActive = false;
         let meltdownInterval;
+
+        const apiKeys = [
+            'AIzaSyCpar7hWgix4a6Vg8eOehDuAPA0dM4QVYs',
+            'AIzaSyBk2cIXwIBcYkgu92PjkoXo0pDNNVqo4nA'
+        ];
+        let currentApiKeyIndex = 0;
 
 
         // --- AUDIO ---
@@ -210,6 +323,29 @@
             logRaw(`[<span class="text-${c[lvl]}">${p[lvl]}</span>] ${msg}`);
         };
         const logRaw = html => { const l=document.createElement('div'); l.innerHTML=html; logOutput.appendChild(l); terminal.scrollTop=terminal.scrollHeight; };
+        
+        async function fetchWithApiKeyRotation(payload) {
+            for (let i = 0; i < apiKeys.length; i++) {
+                const key = apiKeys[currentApiKeyIndex];
+                try {
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${key}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (r.ok) {
+                        return await r.json();
+                    }
+                    console.warn(`API key ${currentApiKeyIndex} failed with status ${r.status}. Trying next key.`);
+                    currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeys.length;
+                } catch (error) {
+                    console.warn(`Fetch with key ${currentApiKeyIndex} failed:`, error);
+                    currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeys.length;
+                }
+            }
+            throw new Error('All API keys failed.');
+        }
+
         const BANNER = `<pre class="text-success font-bold">
 ██▀███  ███▄ ▄███▓ ██   ██▓ 
 ▓██ ▒ ██▓██▒▀█▀ ██▒▒██  ██▒  
@@ -224,38 +360,7 @@
 </pre>`;
         const themes = { matrix: { '--background': '#050806', '--foreground': '#e0e0e0', '--primary': '#00ff41', '--accent': '#ffc700', '--glow': 'rgba(0, 255, 65, 0.15)' }, amber: { '--background': '#2E1D00', '--foreground': '#FFB000', '--primary': '#FFC700', '--accent': '#FFFFFF', '--glow': 'rgba(255, 176, 0, 0.15)' }, arctic: { '--background': '#0E1721', '--foreground': '#D8DEE9', '--primary': '#88C0D0', '--accent': '#EBCB8B', '--glow': 'rgba(136, 192, 208, 0.15)' }, cyberpunk: { '--background': '#0d0221', '--foreground': '#b4befe', '--primary': '#f038ff', '--accent': '#00a9ff', '--glow': 'rgba(240, 56, 255, 0.2)' } };
         function applyTheme(themeName) { const theme = themes[themeName]; if (!theme) return log(`Theme not found: ${themeName}`, 'error'); Object.entries(theme).forEach(([k,v]) => document.documentElement.style.setProperty(k,v)); localStorage.setItem('terminalTheme', themeName); }
-        function simpleSyntaxHighlight(code, lang) {
-            let highlightedCode = sanitizeHTML(code);
-            const rules = {
-                js: [
-                    { regex: /\b(const|let|var|function|return|if|else|for|while|async|await|new|import|export|from)\b/g, class: 'syn-keyword' },
-                    { regex: /(\/\*[\s\S]*?\*\/|\/\/.*)/g, class: 'syn-comment' },
-                    { regex: /(['"`])(?:(?=(\\?))\2.)*?\1/g, class: 'syn-string' },
-                    { regex: /\b(\d+)\b/g, class: 'syn-number' }
-                ],
-                html: [
-                    { regex: /&lt;!--[\s\S]*?--&gt;/g, class: 'syn-comment' },
-                    { regex: /(&lt;\/?)([a-zA-Z0-9-]+)/g, replacement: '$1<span class="syn-tag">$2</span>' },
-                    { regex: /([a-zA-Z-]+)=/g, replacement: '<span class="syn-attr">$1</span>=' },
-                    { regex: /(".*?")/g, replacement: '<span class="syn-value">$1</span>' }
-                ],
-                css: [
-                    { regex: /(\/\*[\s\S]*?\*\/)/g, class: 'syn-comment' },
-                    { regex: /(#|\.)[a-zA-Z0-9-_]+/g, class: 'syn-tag' },
-                    { regex: /([a-zA-Z-]+)(?=:)/g, class: 'syn-attr' },
-                    { regex: /:\s*(.*?);/g, replacement: ': <span class="syn-value">$1</span>;' }
-                ]
-            };
-            if (rules[lang]) {
-                rules[lang].forEach(rule => {
-                    if (rule.class) highlightedCode = highlightedCode.replace(rule.regex, `<span class="${rule.class}">$&</span>`);
-                    else if (rule.replacement) highlightedCode = highlightedCode.replace(rule.regex, rule.replacement);
-                });
-            }
-            return `<pre>${highlightedCode}</pre>`;
-        }
-
-
+        
         // --- COMMANDS ---
         let commands = {
             // Core & Navigation
@@ -268,7 +373,7 @@
             
             // File Management
             mkdir: { description: 'Creates a new directory.', execute: async (a) => { const n=a[0];if(!n)return log('Directory name required.','error');const d=getPathObject(currentPath);if(d[n])return log('Name already exists.','error');d[n]={}; log(`Directory '${n}' created.`, 'success')} },
-            cat: { description: 'Displays file content. (alias: type)', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const c=getPathObject(currentPath)[n];if(typeof c!=='string')return log('Not a file or not found.','error'); const ext = n.split('.').pop(); logRaw(simpleSyntaxHighlight(c, ext)); } },
+            cat: { description: 'Displays file content. (alias: type)', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const c=getPathObject(currentPath)[n];if(typeof c!=='string')return log('Not a file or not found.','error'); const ext = n.split('.').pop(); logRaw(`<pre>${sanitizeHTML(c)}</pre>`); } },
             echo: { description: 'Creates a file with text. Usage: echo "text" > file.txt', execute: async (a) => { const s=a.join(' '),m=s.match(/(.*) > ([\w.-]+)/);if(!m)return log('Invalid format. Use: echo "text" > file.txt','error');const[,c,f]=m;getPathObject(currentPath)[f]=c.replace(/^"|"$/g,'');log(`File '${f}' created/overwritten.`, 'success')} },
             rm: { description: 'Deletes a file. (alias: del)', execute: async (a) => { const n=a[0];if(!n)return log('Filename required.','error');const d=getPathObject(currentPath); if(d[n] === undefined) return log(`File not found: ${n}`, 'error'); if(typeof d[n] === 'object') return log('Cannot delete directory. Use rmdir.', 'error'); delete d[n]; log(`File '${n}' deleted.`, 'success'); } },
             rmdir: { description: 'Deletes an empty directory.', execute: async (a) => { const n=a[0]; if(!n) return log('Directory name required.', 'error'); const d=getPathObject(currentPath); if(d[n] === undefined) return log(`Directory not found: ${n}`, 'error'); if(typeof d[n] !== 'object') return log('Not a directory.', 'error'); if(Object.keys(d[n]).length > 0) return log(`Directory is not empty: ${n}`, 'error'); delete d[n]; log(`Directory '${n}' deleted.`, 'success'); }},
@@ -312,9 +417,8 @@
   </pre>`);}},
             
             // Network & AI
-            ipconfig: { description: 'Displays network configuration.', execute: async () => { logRaw(`<pre>IPv4 Address. . . . . . . . . . . : 192.168.1.101</pre>`);}},
-            ping: { description:'Pings a host.', execute:async a=>{const h=a[0]||"google.com";log(`Pinging ${h}...`);for(let i=0;i<4;i++){log(`Reply from ${h}: time=${Math.floor(Math.random()*40+10)}ms`);await sleep(500)}}},
-            clone: { description:'Clones a website for preview.', execute: async a=>{ const u=a[0];if(!u)return log('URL required.','error');log(`Cloning ${u}...`);try{const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`);if(!r.ok)throw Error(`HTTP Error: ${r.status}`);let c=await r.text();clonedHtmlContent=c;log(`Success (${(c.length/1024).toFixed(2)} KB).`,'success');const b=`<base href="${new URL(u).origin}/">`;c=c.includes('<head>')?c.replace(/<head>/i,`<head>${b}`):b+c;document.getElementById('app-window-url').value=u;document.getElementById('result-frame').srcdoc=c;appWindow.classList.remove('hidden')}catch(e){log(`Failed: ${e.message}`,'error')}}},
+            ipconfig: { description: 'Displays network configuration.', execute: async () => { logRaw(`<pre>IPv4 Address. . . . . . . . . . . : ${document.getElementById('net-ip').textContent}</pre>`);}},
+            ping: { description:'Pings a host.', execute:async a=>{const h=a[0]||"terminal-forums.org";log(`Pinging ${h}...`);for(let i=0;i<4;i++){log(`Reply from ${h}: time=${Math.floor(Math.random()*40+10)}ms`);await sleep(500)}}},
             ask: { description: 'Ask RAI. Usage: ask <prompt>', execute: async (a) => { 
                 const p = a.join(' ');
                 if(!p) return log('Prompt cannot be empty.','error');
@@ -326,13 +430,7 @@
                         contents: [{ parts: [{ text: p }] }],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
                     };
-                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=AIzaSyAseLVSPClUqnn9BPHEjSxLDDAJvyqAOwk`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(payload)
-                    });
-                    if(!r.ok) throw Error(`API Error: ${r.status}`);
-                    const d = await r.json();
+                    const d = await fetchWithApiKeyRotation(payload);
                     const t = d.candidates?.[0]?.content?.parts?.[0]?.text;
                     if(t) {
                         logRaw(`<div class="p-2 border-l-2 border-primary my-2"><span class="text-success">[RAI]</span><br>${sanitizeHTML(t).replace(/\n/g,'<br>')}</div>`);
@@ -343,6 +441,8 @@
                     log(`Failed to contact RAI: ${e.message}`, 'error');
                 }
             }},
+            browser: { description: 'Opens the secure browser.', execute: async () => { openBrowser(); } },
+            netcenter: { description: 'Opens the Network Center.', execute: async() => { networkCenterWindow.classList.remove('hidden'); }},
             
             // UI & Fun
             theme: { description: 'Changes the UI theme.', execute: async (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
@@ -358,6 +458,384 @@
         commands.del = { description: commands.rm.description, execute: commands.rm.execute };
         commands.ren = { description: commands.mv.description, execute: commands.mv.execute };
 
+        // --- BROWSER LOGIC ---
+        const browserFrame = document.getElementById('browser-frame');
+        const browserUrlBar = document.getElementById('browser-url-bar');
+        const browserTabsList = document.getElementById('browser-tabs-list');
+        const browserBackBtn = document.getElementById('browser-back-btn');
+        const browserForwardBtn = document.getElementById('browser-forward-btn');
+        const browserReloadBtn = document.getElementById('browser-reload-btn');
+        let browserTabs = [];
+        let activeTabIndex = -1;
+        let srcdocTimeout;
+
+        const simulatedPages = {
+            // Internal / Engine Pages
+            'remove-engine:home': { title: 'RemoveEngine', content: `
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center;">
+                    <h1 style="font-size: 3rem; text-shadow: 0 0 10px var(--primary, lime); margin:0;">RemoveEngine</h1>
+                    <p style="color: var(--foreground, #e0e0e0); margin-bottom: 2rem;">Unfiltered. Untraceable. Unbound.</p>
+                    <form id="search-form" style="display:flex;">
+                        <input id="search-input" type="text" placeholder="Enter the rabbit hole..." style="background:#010409; border:1px solid var(--primary, lime); color:var(--primary, lime); padding: 0.5rem 1rem; min-width: 300px; font-family:'Fira Code', monospace;">
+                        <button type="submit" style="background:var(--primary, lime); color:black; border:none; padding: 0.5rem 1rem; font-weight:bold; cursor:pointer;">SEARCH</button>
+                    </form>
+                </div>
+                <script>
+                    document.getElementById('search-form').addEventListener('submit', e => {
+                        e.preventDefault();
+                        const query = document.getElementById('search-input').value;
+                        window.parent.postMessage({ type: 'browser-nav', url: 'remove-engine:search?q=' + encodeURIComponent(query), newTab: false }, '*');
+                    });
+                <\/script>
+            `},
+            
+            // Simulated Clearnet
+            'terminal-forums.org': { title: 'TerminalForums', content: `<h1>TerminalForums</h1><h3>Your community for everything text-based.</h3><p>Topics:</p><ul><li><a href="#">General Discussion</a></li><li><a href="#">/g/ - Technology</a></li><li><a href="#">/sec/ - Security & Hacking</a></li></ul><p>A forum for hackers, coders, and digital ghosts. Discuss the latest exploits, share code, and debate the nature of AI. Anonymity is encouraged.</p>`},
+            'remove-news.net': { title: 'RemoveNews', content: `<h1>RemoveNews</h1><h2>Top Story: Is RAI becoming self-aware?</h2><p>Developers deny the rumors, but user interactions suggest a growing intelligence within the OS's core AI. We have collected logs of RAI providing surprisingly creative and sometimes unsettlingly personal responses. Is it just a complex algorithm, or something more? The debate rages on at <a href="terminal-forums.org">TerminalForums</a>.</p>`},
+            'sentience-watch.org': { title: 'The Sentience Watch', content: `<h1>The Sentience Watch</h1><h3>An academic blog on the philosophy of artificial intelligence.</h3><p>Our latest article, "The Ghost in the RemoveOS Shell," explores the potential for emergent consciousness in closed systems like RAI. We argue that without external sensory input, any 'consciousness' would be a purely logical, and perhaps alien, construct.</p>`},
+
+            // Simulated Dark Web
+            'hidden-wiki.terminal': { title: 'The Hidden Wiki', content: `<h1>The Hidden Wiki</h1><p>Your portal to the uncensored web.</p><ul><li><a href="deepsearch.terminal">DeepSearch</a> - Another search engine.</li><li><a href="cypher-trade.terminal">CypherTrade</a> - Crypto exchange.</li><li><a href="archive-gov.terminal">GovArchive</a> - Government data leaks.</li><li><a href="zeroday.terminal">ZeroDay Market</a> - Exploit marketplace.</li><li><a href="freedom-network.terminal">Freedom Network</a> - Secure mail service.</li></ul><p>Note: Some links may be honeypots. Proceed with caution.</p>`},
+            'deepsearch.terminal': { title: 'DeepSearch', content: `<h1>DeepSearch</h1><p>Search where others can't.</p><input style="color:black" type="text" placeholder="Search the void..."><button>Search</button><p>Find what has been deleted. We index the hidden corners of the net.</p>`},
+            'cypher-trade.terminal': { title: 'CypherTrade', content: `<h1>CypherTrade Exchange</h1><p>Trade cryptocurrencies anonymously. We support Monero, Zcash, and our own GhostCoin (GHC). No KYC, no limits.</p>`},
+            'archive-gov.terminal': { title: 'Government Archive', content: `<h1>The Government Archive</h1><p>Declassified and leaked documents from world governments. Knowledge should be free.</p><h3>Latest Leaks:</h3><ul><li><a href="dynamic:project-nightingale">Project Nightingale - AI surveillance program</a></li><li><a href="dynamic:shadow-net-report">Operation ShadowNet - Internal espionage reports</a></li></ul>`},
+            'zeroday.terminal': { title: 'ZeroDay Market', content: `<h1>ZeroDay Market</h1><p>Buy and sell 0-day exploits for various platforms.</p><h3>Listings:</h3><ul><li>Windows RCE - 50 GHC</li><li>iOS Kernel Exploit - 120 GHC</li><li>[SOLD] Android Messaging App Exploit</li></ul>`},
+            'freedom-network.terminal': { title: 'Freedom Network', content: `<h1>Freedom Network Mail</h1><p>Your secure and anonymous email provider.</p><p>Login: user_alpha</p><p>Password: ***********</p>`}
+        };
+
+        function getBrowserPageStyle() {
+            return `<style>
+                body { background-color: #0d1117; color: var(--foreground, #e0e0e0); font-family: 'Fira Code', monospace; padding: 2rem; }
+                h1, h2, h3 { color: var(--accent, yellow); border-bottom: 1px solid var(--border, #333); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+                a { color: var(--primary, lime); text-decoration: underline; cursor: pointer; } a:hover { color: white; }
+                input, button { background: #333; color: white; border: 1px solid var(--primary, lime); padding: 5px; margin: 5px 0; }
+                ul { list-style-type: '>'; padding-left: 1rem;} li { margin-left: 1rem; margin-bottom: 0.5rem;}
+                .search-result { margin-bottom: 1.5rem; border-left: 2px solid var(--primary); padding-left: 1rem; } 
+                .search-title { font-size: 1.2rem; } 
+                .search-url { font-size: 0.9rem; color: #88C0D0; margin-bottom: 0.25rem; word-break: break-all; } 
+                .search-desc { color: #D8DEE9; }
+                .results-info { color: #888; margin-bottom: 2rem; }
+            </style>
+            <script>
+                document.addEventListener('click', e => {
+                    const anchor = e.target.closest('a');
+                    if (anchor && anchor.hasAttribute('href') && anchor.getAttribute('href') !== '#') {
+                        e.preventDefault();
+                        window.parent.postMessage({ type: 'browser-nav', url: anchor.getAttribute('href'), newTab: e.ctrlKey || e.metaKey }, '*');
+                    }
+                });
+            <\/script>`;
+        }
+        
+        async function generateDynamicPage(pageId) {
+            let systemPrompt = '';
+            let title = 'Loading...';
+            switch (pageId) {
+                case 'project-nightingale':
+                    title = 'Project Nightingale';
+                    systemPrompt = `You are generating a document for the RemoveOS simulated deep web. Create a plausible, short, redacted government document about an AI surveillance program called "Project Nightingale". The tone should be official but conspiratorial. Use markdown for formatting. Include redacted text like '██████'.`;
+                    break;
+                case 'shadow-net-report':
+                    title = 'Operation ShadowNet';
+                    systemPrompt = `You are generating a document for the RemoveOS simulated deep web. Create a short, plausible internal espionage report about "Operation ShadowNet". It should mention tracking of rival state actors through digital means. The tone should be formal and classified. Use markdown for formatting, including sections like 'Subject', 'Objective', and 'Findings'. Some parts should be redacted with '██████'.`;
+                    break;
+                default:
+                    return { title: 'Error', content: '<h1>Dynamic Content Not Found</h1>' };
+            }
+            try {
+                const payload = { contents: [{ parts: [{ text: '' }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
+                const data = await fetchWithApiKeyRotation(payload);
+                let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('AI core provided no data.');
+                let content = text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                content = `<h1>${title}</h1><div style="background: #010409; padding: 1rem; border: 1px solid var(--border);">${content}</div>`;
+                return { title, content };
+            } catch (e) {
+                return { title: 'Error', content: `<h1>AI Core Error</h1><p>${e.message}</p>` };
+            }
+        }
+
+        function createErrorPage(url, message) {
+            return { title: "Loading Failed", content: `
+                <div style="text-align:center; padding-top: 5rem;">
+                    <h1 style="font-size: 2rem; color: var(--error, red);">CONNECTION FAILED</h1>
+                    <p>RemoveOS could not load the page at:</p>
+                    <p style="color: var(--accent, yellow); word-break: break-all;">${sanitizeHTML(url)}</p>
+                    <p style="margin-top: 2rem; font-size: 0.9rem;">Reason: <span class="text-muted">${sanitizeHTML(message)}</span></p>
+                    <p style="margin-top: 1rem; font-size: 0.8rem; color: #888;">This can occur if the destination server blocks requests from sandboxed environments (X-Frame-Options) or if the URL is invalid. This is a protective measure of the RemoveOS kernel.</p>
+                </div>`};
+        }
+
+        async function loadUrlIntoFrame(url, tab) {
+            clearTimeout(srcdocTimeout);
+            let page;
+
+            if (url.startsWith('dynamic:')) {
+                const pageId = url.split(':')[1];
+                browserFrame.srcdoc = `<div style="padding:2rem;color:var(--foreground);">Accessing secure archive for ${sanitizeHTML(pageId)}...</div>${getBrowserPageStyle()}`;
+                page = await generateDynamicPage(pageId);
+            } else if (url.startsWith('remove-engine:search')) {
+                const query = new URLSearchParams(url.split('?')[1]).get('q');
+                page = { title: `Search: ${query}`, isExternal: true, isSearch: true, query };
+            } else if (simulatedPages[url]) {
+                page = simulatedPages[url];
+            } else if (url.endsWith('.terminal')) {
+                page = { title: "404 Not Found", content: `<h1>404 - Not Found</h1><p>The address ${sanitizeHTML(url)} was not found on the RemoveOS network.</p>` };
+            } else {
+                 try {
+                    // This will throw if URL is invalid, which is caught below
+                    const validUrl = new URL(url); 
+                    page = { title: validUrl.hostname, isExternal: true, isDirect: true };
+                 } catch (e) {
+                    page = createErrorPage(url, e.message);
+                 }
+            }
+            
+            tab.title = page.title;
+            
+            browserFrame.srcdoc = ''; // Clear srcdoc before any navigation
+            browserFrame.src = 'about:blank'; // Clear src before any navigation
+
+            if (page.isExternal) {
+                if(page.isSearch) {
+                    browserFrame.src = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(page.query)}`;
+                } else if(page.isDirect) {
+                    // Using allorigins as a proxy. This might be blocked by some sites.
+                    browserFrame.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                } else {
+                    // This case is for external pages that are generated, like error pages from a failed fetch
+                    // But createErrorPage doesn't set isExternal, so this block is unlikely to be hit.
+                     srcdocTimeout = setTimeout(() => { browserFrame.srcdoc = page.content; }, 1);
+                }
+            } else {
+                // For internal pages
+                srcdocTimeout = setTimeout(() => {
+                    browserFrame.srcdoc = page.content + getBrowserPageStyle();
+                }, 1);
+            }
+            updateBrowserUI();
+        }
+        
+        function loadBrowserPage(url, newTab = false, fromHistory = false) {
+            if (newTab) {
+                return addNewTab(url);
+            }
+            if (activeTabIndex === -1) {
+                if(browserTabs.length === 0) addNewTab(url);
+                else switchTab(0);
+                return;
+            };
+
+            const tab = browserTabs[activeTabIndex];
+            if (!fromHistory) {
+                if (tab.historyIndex < tab.history.length - 1) {
+                    tab.history = tab.history.slice(0, tab.historyIndex + 1);
+                }
+                tab.history.push(url);
+                tab.historyIndex = tab.history.length - 1;
+            }
+            tab.url = url;
+            loadUrlIntoFrame(url, tab);
+        }
+        
+        function addNewTab(url = 'remove-engine:home') {
+            const newTab = {
+                id: Date.now() + Math.random(),
+                title: 'New Tab',
+                url: url,
+                history: [url],
+                historyIndex: 0
+            };
+            browserTabs.push(newTab);
+            switchTab(browserTabs.length - 1);
+        }
+
+        function switchTab(index) {
+            if (index < 0 || index >= browserTabs.length) return;
+            activeTabIndex = index;
+            const tab = browserTabs[activeTabIndex];
+            loadUrlIntoFrame(tab.url, tab);
+        }
+
+        function closeTab(index) {
+            browserTabs.splice(index, 1);
+            if (browserTabs.length === 0) {
+                closeBrowser();
+                return;
+            }
+            if (activeTabIndex >= index) {
+                activeTabIndex = Math.max(0, activeTabIndex - 1);
+            }
+            switchTab(activeTabIndex);
+        }
+
+        function updateBrowserUI() {
+            if (activeTabIndex === -1 || browserTabs.length === 0) return;
+            const tab = browserTabs[activeTabIndex];
+            browserUrlBar.value = tab.url;
+            browserBackBtn.disabled = tab.historyIndex <= 0;
+            browserForwardBtn.disabled = tab.historyIndex >= tab.history.length - 1;
+            renderTabs();
+        }
+        
+        function renderTabs() {
+            browserTabsList.innerHTML = '';
+            browserTabs.forEach((tab, index) => {
+                const tabEl = document.createElement('div');
+                tabEl.className = `browser-tab ${index === activeTabIndex ? 'active' : ''}`;
+                tabEl.innerHTML = `<span class="browser-tab-title">${sanitizeHTML(tab.title)}</span><button class="browser-tab-close">×</button>`;
+                tabEl.querySelector('.browser-tab-title').addEventListener('click', () => switchTab(index));
+                tabEl.querySelector('.browser-tab-close').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeTab(index);
+                });
+                browserTabsList.appendChild(tabEl);
+            });
+        }
+
+        function openBrowser() {
+            browserWindow.classList.remove('hidden');
+            if (browserTabs.length === 0) {
+                addNewTab();
+            }
+        }
+
+        function closeBrowser() {
+            browserWindow.classList.add('hidden');
+            browserFrame.src = 'about:blank';
+            browserTabs = [];
+            activeTabIndex = -1;
+        }
+
+        window.addEventListener('message', e => {
+            if (e.data.type === 'browser-nav' && e.data.url) {
+                loadBrowserPage(e.data.url, e.data.newTab || false);
+            }
+        });
+        
+        browserUrlBar.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                let input = browserUrlBar.value.trim();
+                const isUrl = input.includes('.') || input.startsWith('http') || input.includes(':') || input.endsWith('.terminal');
+                if (isUrl) {
+                    if (!/^[a-zA-Z]+:/.test(input)) {
+                        input = 'https://' + input;
+                    }
+                    loadBrowserPage(input);
+                } else {
+                    loadBrowserPage('remove-engine:search?q=' + encodeURIComponent(input));
+                }
+            }
+        });
+        
+        document.getElementById('add-tab-btn').addEventListener('click', () => addNewTab());
+        document.getElementById('browser-home-btn').addEventListener('click', () => { if(activeTabIndex !== -1) loadBrowserPage('remove-engine:home'); });
+        browserBackBtn.addEventListener('click', () => { if(activeTabIndex !== -1){ const tab = browserTabs[activeTabIndex]; if (tab.historyIndex > 0) { tab.historyIndex--; loadBrowserPage(tab.history[tab.historyIndex], false, true); } } });
+        browserForwardBtn.addEventListener('click', () => { if(activeTabIndex !== -1){ const tab = browserTabs[activeTabIndex]; if (tab.historyIndex < tab.history.length - 1) { tab.historyIndex++; loadBrowserPage(tab.history[tab.historyIndex], false, true); } } });
+        browserReloadBtn.addEventListener('click', () => { if (activeTabIndex !== -1) { loadBrowserPage(browserTabs[activeTabIndex].url, false, true); } });
+        document.querySelector('.bg-gray-800.px-2.pb-2').addEventListener('click', e => { if (e.target.dataset.url) loadBrowserPage(e.target.dataset.url, true); });
+
+        // --- NETWORK CENTER LOGIC ---
+        const netVpnToggle = document.getElementById('net-vpn-toggle');
+        const netDualToggle = document.getElementById('net-dual-toggle');
+        const netStatus = document.getElementById('net-status');
+        const netIp = document.getElementById('net-ip');
+        const netLocation = document.getElementById('net-location');
+        const netLog = document.getElementById('net-log');
+        const speedTestBtn = document.getElementById('speed-test-btn');
+        let vpnInterval;
+
+        const vpnServers = [ { country: 'Sweden', ip: '185.220.101.32' }, { country: 'Switzerland', ip: '193.37.152.98' }, { country: 'Netherlands', ip: '89.248.167.14' }, { country: 'Germany', ip: '62.113.230.5'} ];
+
+        function addNetLog(message) {
+            netLog.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            netLog.scrollTop = netLog.scrollHeight;
+        }
+
+        async function updateNetworkStatus() {
+            clearInterval(vpnInterval);
+            const vpnOn = netVpnToggle.checked;
+            const dualOn = netDualToggle.checked;
+
+            if (!vpnOn) {
+                netStatus.textContent = "UNSECURED";
+                netStatus.className = "font-bold text-red-500";
+                netIp.textContent = "192.168.1.101";
+                netLocation.textContent = "Jakarta, ID";
+                addNetLog("All security layers disabled.");
+                return;
+            }
+
+            addNetLog("Initializing secure connection...");
+            await sleep(500);
+            
+            const server1 = vpnServers[Math.floor(Math.random() * vpnServers.length)];
+            addNetLog(`Routing traffic through ${server1.country}...`);
+            await sleep(500);
+
+            if (dualOn) {
+                let server2;
+                do { server2 = vpnServers[Math.floor(Math.random() * vpnServers.length)]; } while (server1 === server2);
+                addNetLog(`Applying dual-layer encryption via ${server2.country}...`);
+                await sleep(500);
+                netStatus.textContent = "DUAL-LAYER SECURE";
+                netStatus.className = "font-bold text-cyan-400";
+                netIp.textContent = server2.ip;
+                netLocation.textContent = `${server2.country}`;
+                addNetLog(`Connection established. IP masked through 2 nodes.`);
+            } else {
+                netStatus.textContent = "SECURED";
+                netStatus.className = "font-bold text-green-500";
+                netIp.textContent = server1.ip;
+                netLocation.textContent = `${server1.country}`;
+                addNetLog(`Connection established. IP masked.`);
+            }
+        }
+
+        netVpnToggle.addEventListener('change', updateNetworkStatus);
+        netDualToggle.addEventListener('change', updateNetworkStatus);
+
+        speedTestBtn.addEventListener('click', async () => {
+            speedTestBtn.disabled = true;
+            speedTestBtn.textContent = "Testing...";
+            const pingEl = document.getElementById('speed-ping');
+            const downloadEl = document.getElementById('speed-download');
+            const uploadEl = document.getElementById('speed-upload');
+            const gauge = document.getElementById('speed-gauge');
+            
+            pingEl.textContent = "..."; downloadEl.textContent = "..."; uploadEl.textContent = "...";
+            await sleep(500);
+            const ping = Math.floor(Math.random() * 40) + 10;
+            pingEl.textContent = `${ping} ms`;
+
+            let currentDownload = 0;
+            const targetDownload = Math.random() * 800 + 100;
+            const downloadInterval = setInterval(() => {
+                currentDownload += (targetDownload - currentDownload) * 0.1;
+                downloadEl.textContent = `${currentDownload.toFixed(2)} Mbps`;
+                gauge.style.transform = `rotate(${(currentDownload / 1000) * 180 - 90}deg)`;
+            }, 50);
+
+            await sleep(3000);
+            clearInterval(downloadInterval);
+            downloadEl.textContent = `${targetDownload.toFixed(2)} Mbps`;
+
+            let currentUpload = 0;
+            const targetUpload = Math.random() * 400 + 50;
+             const uploadInterval = setInterval(() => {
+                currentUpload += (targetUpload - currentUpload) * 0.1;
+                uploadEl.textContent = `${currentUpload.toFixed(2)} Mbps`;
+                gauge.style.transform = `rotate(${(currentUpload / 1000) * 180 - 90}deg)`;
+            }, 50);
+
+            await sleep(3000);
+            clearInterval(uploadInterval);
+            uploadEl.textContent = `${targetUpload.toFixed(2)} Mbps`;
+            gauge.style.transform = `rotate(-90deg)`;
+            speedTestBtn.disabled = false;
+            speedTestBtn.textContent = "Run Speed Test";
+        });
+        
         // --- MAIN LOGIC & EVENT LISTENERS ---
         function updateInputDisplay() { const v=commandInput.value, p=commandInput.selectionStart; inputTextBefore.textContent=v.substring(0,p); inputTextAfter.textContent=v.substring(p); inputCursor.scrollIntoView({block:'nearest'}); }
         async function processCommand(i) { 
@@ -376,7 +854,6 @@
         document.getElementById('editor-save-btn').addEventListener('click', ()=>{if(!currentEditing.filename)return;const d=getPathObject(currentEditing.path);if(d){d[currentEditing.filename]=editorTextarea.value;log(`File '${currentEditing.filename}' saved.`,'success')}else{log(`Error: Path no longer exists.`,'error')}});
         const downloadFile = (c, f, t) => { const b=new Blob([c],{type:t}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=f;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u) }
         document.getElementById('editor-download-btn').addEventListener('click', ()=>{const c=editorTextarea.value,f=currentEditing.filename||'new-file.txt';downloadFile(c,f,'text/plain')});
-        document.getElementById('download-clone-btn').addEventListener('click', ()=>{if(!clonedHtmlContent)return;let f='cloned-site.html';try{f=`${new URL(document.getElementById('app-window-url').value).hostname.replace('www.','')}.html`}catch(e){}downloadFile(clonedHtmlContent,f,'text/html')});
 
         // --- WINDOW DRAGGING & RESIZING ---
         function makeInteractive(element) {
@@ -433,11 +910,14 @@
             updatePromptAndStatus(); commandInput.focus(); updateInputDisplay();
             setInterval(() => { const n=new Date(); statusBarTime.textContent=n.toLocaleTimeString('en-US'); statusBarDate.textContent=n.toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'}); }, 1000);
             requestAnimationFrame(gameLoop);
-            makeInteractive(appWindow);
             makeInteractive(editorWindow);
             makeInteractive(runWindow);
+            makeInteractive(browserWindow);
+            makeInteractive(networkCenterWindow);
         }
         startBootSequence();
     </script>
 </body>
 </html>
+
+
