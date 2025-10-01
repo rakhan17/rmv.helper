@@ -1308,12 +1308,19 @@
                 return; 
             } 
             frameCount++; 
-            if(time-lastTime>=1000) {
+            if(time-lastTime >= 1000) {
                 statusBarFps.textContent=`FPS: ${frameCount}`;
                 frameCount=0;
-                lastTime=time
+                lastTime=time;
             } 
-            statusBarCpu.textContent=`CPU: ${(Math.random()*5+2).toFixed(1)}%`; 
+
+            // Simulasi CPU yang lebih realistis
+            const baseCpu = 2.5; // Penggunaan dasar saat idle
+            const oscillation = 3.0 * Math.sin(time / 2000); // Fluktuasi beban utama yang lambat
+            const spikes = Math.random() * 2.5; // Lonjakan kecil acak
+            const cpuUsage = baseCpu + oscillation + spikes;
+            statusBarCpu.textContent = `CPU: ${cpuUsage.toFixed(1)}%`;
+
             requestAnimationFrame(gameLoop); 
         }
         async function bootStep(text, delay=50) { 
@@ -1364,8 +1371,8 @@
             updateInputDisplay();
             setInterval(() => { 
                 const n=new Date(); 
-                statusBarTime.textContent=n.toLocaleTimeString('en-US'); 
-                statusBarDate.textContent=n.toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'}); 
+                statusBarTime.textContent=n.toLocaleTimeString('en-US',{hour12: false}); 
+                statusBarDate.textContent=n.toLocaleDateString('en-CA'); // Format YYYY-MM-DD
             }, 1000);
             requestAnimationFrame(gameLoop);
             makeInteractive(editorWindow);
