@@ -84,7 +84,7 @@
             font-family: 'VT323', monospace; font-size: 1.5rem; letter-spacing: 1px;
             padding: 1rem; user-select: none;
         }
-        .bios-header, .bios-footer { text-align: center; background-color: #808080; color: #FFF; padding: 2px 0; }
+        .bios-header, .bios-footer-container { text-align: center; background-color: #808080; color: #FFF; padding: 2px 0; }
         .bios-nav { display: flex; justify-content: center; background-color: #808080; margin: 1rem 0;}
         .bios-nav-item { padding: 0 1rem; cursor: pointer; }
         .bios-nav-item.active { background-color: #FFF; color: #0000AA; }
@@ -95,8 +95,8 @@
         .bios-item-name { color: #B0B0B0; }
         .bios-item.selected .bios-item-name, .bios-item.selected .bios-item-value { background-color: #808080; color: #FFFF00; }
         .bios-item-value { color: #FFF; }
-        .bios-footer { position: absolute; bottom: 1rem; left: 1rem; right: 1rem; background: none; text-align: left; }
-
+        .bios-footer-container { position: absolute; bottom: 1rem; left: 1rem; right: 1rem; background: none; text-align: left; }
+        .bios-key { background-color: #000; color: #FFF; padding: 0 4px; margin: 0 4px; font-weight: bold;}
     </style>
 </head>
 <body class="flex h-screen p-2 sm:p-4">
@@ -114,13 +114,13 @@
             <div id="bios-options-panel" class="bios-options"></div>
             <div id="bios-help-panel" class="bios-help"></div>
         </div>
-        <div class="bios-footer">
-            <span class="text-white bg-black p-1">F1</span> Help
-            <span class="text-white bg-black p-1">↑↓</span> Select Item
-            <span class="text-white bg-black p-1">←→</span> Select Menu
-            <span class="text-white bg-black p-1">Enter</span> Select
-            <span class="text-white bg-black p-1">ESC</span> Exit
-            <span class="text-white bg-black p-1">F10</span> Save and Exit
+        <div class="bios-footer-container">
+            <span class="bios-key">↑↓</span> Select Item
+            <span class="bios-key">←→</span> Select Menu
+            <span class="bios-key">+/-</span> Change Values
+            <span class="bios-key">Enter</span> Select
+            <span class="bios-key">ESC</span> Exit
+            <span class="bios-key">F10</span> Save and Exit
         </div>
     </div>
     
@@ -561,17 +561,26 @@
             useradd: { description: 'Creates a new user.', execute: async (a) => { const u=a[0];if(!u)return log('Username required.','error');if(users[u]) return log(`User '${u}' already exists.`,'error'); const homePath = ['home', u]; users[u]={ home: homePath }; getPathObject(['home'])[u] = {}; log(`User '${u}' created. Home directory at /home/${u}`,'success') } },
             su: { description: 'Switches to another user.', execute: async (a) => { const u=a[0] || 'user';if(!users[u]) return log(`User '${u}' not found.`,'error'); currentUser=u; currentPath=users[u].home; updatePromptAndStatus()}},
             calc: { description: 'Evaluates a mathematical expression.', execute: async (a) => { const expr = a.join(' '); try { const result = new Function('return ' + expr)(); log(result); } catch(e) { log('Invalid expression.', 'error'); }}},
-            systeminfo: { description: 'Displays detailed system information.', execute: async() => { logRaw(`<pre class="text-gray-300">
+            systeminfo: { description: 'Displays detailed system information.', execute: async() => {
+                let coreCount = navigator.hardwareConcurrency;
+                if (biosSettings['Hyper-Threading'] === 'Disabled') {
+                    coreCount = Math.max(1, Math.floor(coreCount / 2));
+                }
+                logRaw(`<pre class="text-gray-300">
   <span class="text-accent">Host Name:</span>                 REMOVEOS
   <span class="text-accent">OS Name:</span>                   RemoveOS Version 9.6
   <span class="text-accent">OS Version:</span>                9.6.2024
-  <span class="text-accent">Processor(s):</span>              1 Processor(s) Installed. [${navigator.hardwareConcurrency} Cores]
-  </pre>`);}},
+  <span class="text-accent">Processor(s):</span>              1 Processor(s) Installed. [${coreCount} Cores]
+  </pre>`);
+            }},
             
             // Network & AI
             ipconfig: { description: 'Displays network configuration.', execute: async () => { logRaw(`<pre>IPv4 Address. . . . . . . . . . . : ${document.getElementById('net-ip').textContent}</pre>`);}},
             ping: { description:'Pings a host.', execute:async a=>{const h=a[0]||"terminal-forums.org";log(`Pinging ${h}...`);for(let i=0;i<4;i++){log(`Reply from ${h}: time=${Math.floor(Math.random()*40+10)}ms`);await sleep(500)}}},
             ask: { description: 'Ask RAI (Gemini).', execute: async (a) => { 
+                if (biosSettings['RAI Core'] === 'Disabled') {
+                    return log('RAI Core is disabled in BIOS setup.', 'error');
+                }
                 const p = a.join(' ');
                 if(!p) return log('Prompt cannot be empty.','error');
                 log('RAI is thinking...','info');
@@ -598,10 +607,25 @@
             
             // UI & Fun
             theme: { description: 'Changes the UI theme.', execute: async (a) => {if(themes[a[0]]){applyTheme(a[0]);log(`Theme set to ${a[0]}`,'success')}else log(`Invalid theme. Try: ${Object.keys(themes).join(', ')}`,'error')} },
-            neofetch: { description:'Shows system info.', execute:async()=>{ const up=((new Date()-loginTime)/60000).toFixed(0)+" mins";logRaw(`<pre><span class="text-success">${currentUser}@removeos</span>\n-------\n<span class="text-success">OS:</span> RemoveOS v9.6\n<span class="text-success">Uptime:</span> ${up}\n<span class="text-success">Cores:</span> ${navigator.hardwareConcurrency}</pre>`)}},
+            neofetch: { description:'Shows system info.', execute:async()=>{ 
+                const up=((new Date()-loginTime)/60000).toFixed(0)+" mins";
+                let coreCount = navigator.hardwareConcurrency;
+                if (biosSettings['Hyper-Threading'] === 'Disabled') {
+                    coreCount = Math.max(1, Math.floor(coreCount / 2));
+                }
+                logRaw(`<pre><span class="text-success">${currentUser}@removeos</span>\n-------\n<span class="text-success">OS:</span> RemoveOS v9.6\n<span class="text-success">Uptime:</span> ${up}\n<span class="text-success">Cores:</span> ${coreCount}</pre>`)
+            }},
             passgen: { description: 'Generates a random password.', execute: async (a) => { const l=parseInt(a[0])||16,c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012356789!@#$%^&*()';let p='';for(let i=0;i<l;i++)p+=c.charAt(Math.floor(Math.random()*c.length));logRaw(`<span class="text-accent">${p}</span>`)} },
             matrix: { description:'Digital Rain effect.', execute:async()=>{const c=document.createElement('canvas');c.id='matrix-canvas';c.style.position='fixed';c.style.top=0;c.style.left=0;c.style.zIndex=998;document.body.appendChild(c);const x=c.getContext('2d');c.width=window.innerWidth;c.height=window.innerHeight;const l='アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン',f=18,o=c.width/f,d=Array(Math.floor(o)).fill(1);let i;function w(){x.fillStyle='rgba(0,0,0,0.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primary');x.font=`${f}px monospace`;for(let t=0;t<d.length;t++){const e=l[Math.floor(Math.random()*l.length)];x.fillText(e,t*f,d[t]*f);d[t]*f>c.height&&Math.random()>.975&&(d[t]=0);d[t]++}}i=setInterval(w,40);const s=()=>{clearInterval(i);document.body.removeChild(c);window.removeEventListener('keydown',s,{once:true});window.removeEventListener('click',s,{once:true})};window.addEventListener('keydown',s,{once:true});window.addEventListener('click',s,{once:true})}},
-            meltdown: { description: 'Initiates core system deconstruction.', execute: async () => { if (isMeltdownActive) return; log('WARNING: Core system integrity compromised. Deconstruction sequence initiated.', 'error'); await sleep(1000); triggerMeltdown(); } }
+            meltdown: { description: 'Initiates core system deconstruction.', execute: async () => { 
+                if (biosSettings['Kernel Lock'] === 'Enabled') {
+                   return log('Cannot initiate deconstruction. Kernel Lock is active in BIOS setup.', 'error');
+                }
+                if (isMeltdownActive) return; 
+                log('WARNING: Core system integrity compromised. Deconstruction sequence initiated.', 'error'); 
+                await sleep(1000); 
+                triggerMeltdown(); 
+            } }
         };
         // Command Aliases
         commands.dir = { description: commands.ls.description, execute: commands.ls.execute };
@@ -1093,6 +1117,15 @@
         let currentBiosTab = 0;
         let currentBiosItem = 0;
         let biosTimeUpdater;
+        let tempBiosSettings = {};
+
+        let biosSettings = {
+            'Virtualization': 'Enabled',
+            'Hyper-Threading': 'Enabled',
+            'RAI Core': 'Enabled',
+            'Fast Boot': 'Disabled',
+            'Kernel Lock': 'Enabled'
+        };
 
         const biosData = {
             'Main': [
@@ -1104,21 +1137,20 @@
                 { name: 'Total Memory', value: '8192 MB', help: 'Total amount of system memory (RAM).' },
             ],
             'Advanced': [
-                { name: 'Virtualization', value: 'Enabled', help: 'Enable or disable hardware-assisted virtualization.' },
-                { name: 'Hyper-Threading', value: 'Enabled', help: 'Enable or disable Hyper-Threading technology.' },
-                { name: 'RAI Core', value: 'Enabled', help: 'Enables the RemoveAI core daemon on boot.' },
-                { name: 'USB Legacy Support', value: 'Enabled', help: 'Provides support for older USB devices.' },
+                { name: 'Virtualization', value: ['Disabled', 'Enabled'], help: 'Enable or disable hardware-assisted virtualization.' },
+                { name: 'Hyper-Threading', value: ['Disabled', 'Enabled'], help: 'Enable or disable Hyper-Threading to affect reported core counts.' },
+                { name: 'RAI Core', value: ['Disabled', 'Enabled'], help: 'Enables the RemoveAI core daemon on boot.' },
+                { name: 'USB Legacy Support', value: ['Disabled', 'Enabled'], help: 'Provides support for older USB devices.' },
             ],
             'Boot': [
                 { name: 'Boot Priority 1', value: 'REMOVEOS_DISK', help: 'First device in the boot sequence.' },
                 { name: 'Boot Priority 2', value: 'USB Device', help: 'Second device in the boot sequence.' },
-                { name: 'Boot Priority 3', value: 'Network PXE', help: 'Third device in the boot sequence.' },
-                { name: 'Fast Boot', value: 'Disabled', help: 'Skips some hardware checks for a faster boot time.' },
+                { name: 'Fast Boot', value: ['Disabled', 'Enabled'], help: 'Skips some hardware checks for a faster boot time.' },
             ],
             'Security': [
                 { name: 'Admin Password', value: 'Not Set', help: 'Set a password to access the BIOS setup.'},
-                { name: 'Secure Boot', value: 'Disabled', help: 'Enforces signature checks on bootloaders.'},
-                { name: 'Kernel Lock', value: 'Enabled', help: 'Prevents unauthorized modification of the kernel.'},
+                { name: 'Secure Boot', value: ['Disabled', 'Enabled'], help: 'Enforces signature checks on bootloaders.'},
+                { name: 'Kernel Lock', value: ['Disabled', 'Enabled'], help: 'Prevents unauthorized modification of the kernel.'},
             ],
             'Exit': [
                 { name: 'Exit Saving Changes', value: '', help: 'Save all changes and exit the setup utility.' },
@@ -1136,63 +1168,84 @@
             const currentTabName = tabs[currentBiosTab];
             const items = biosData[currentTabName];
 
-            // Update nav
             navBar.innerHTML = tabs.map((tab, index) => 
                 `<div class="bios-nav-item ${index === currentBiosTab ? 'active' : ''}">${tab}</div>`
             ).join('');
 
-            // Update options
-            optionsPanel.innerHTML = items.map((item, index) => 
-                `<div class="bios-item ${index === currentBiosItem ? 'selected' : ''}">
+            optionsPanel.innerHTML = items.map((item, index) => {
+                const itemName = item.name;
+                let displayValue;
+                if (Array.isArray(item.value)) {
+                    displayValue = `[${tempBiosSettings[itemName]}]`;
+                } else {
+                    displayValue = item.value;
+                }
+                return `<div class="bios-item ${index === currentBiosItem ? 'selected' : ''}">
                     <span class="bios-item-name">${item.name}</span>
-                    <span class="bios-item-value">${item.value}</span>
+                    <span class="bios-item-value">${displayValue}</span>
                  </div>`
-            ).join('');
+            }).join('');
 
-            // Update help
             helpPanel.innerHTML = items[currentBiosItem].help;
         }
 
         const biosKeyHandler = (e) => {
             e.preventDefault();
             const tabs = Object.keys(biosData);
-            const items = biosData[tabs[currentBiosTab]];
+            const currentTabName = tabs[currentBiosTab];
+            const items = biosData[currentTabName];
+            const currentItem = items[currentBiosItem];
+
+            const changeValue = (direction) => {
+                if (Array.isArray(currentItem.value)) {
+                    const options = currentItem.value;
+                    const currentValue = tempBiosSettings[currentItem.name];
+                    const currentIndex = options.indexOf(currentValue);
+                    const nextIndex = (currentIndex + direction + options.length) % options.length;
+                    tempBiosSettings[currentItem.name] = options[nextIndex];
+                }
+            };
 
             switch(e.key) {
-                case 'ArrowUp':
-                    currentBiosItem = (currentBiosItem - 1 + items.length) % items.length;
-                    break;
-                case 'ArrowDown':
-                    currentBiosItem = (currentBiosItem + 1) % items.length;
-                    break;
-                case 'ArrowLeft':
-                    currentBiosTab = (currentBiosTab - 1 + tabs.length) % tabs.length;
-                    currentBiosItem = 0;
-                    break;
-                case 'ArrowRight':
-                    currentBiosTab = (currentBiosTab + 1) % tabs.length;
-                    currentBiosItem = 0;
-                    break;
+                case 'ArrowUp': currentBiosItem = (currentBiosItem - 1 + items.length) % items.length; break;
+                case 'ArrowDown': currentBiosItem = (currentBiosItem + 1) % items.length; break;
+                case 'ArrowLeft': currentBiosTab = (currentBiosTab - 1 + tabs.length) % tabs.length; currentBiosItem = 0; break;
+                case 'ArrowRight': currentBiosTab = (currentBiosTab + 1) % tabs.length; currentBiosItem = 0; break;
                 case 'Enter':
-                    if (tabs[currentBiosTab] === 'Exit') {
-                        if (currentBiosItem === 0 || currentBiosItem === 1) exitBiosMode();
+                    if (currentTabName === 'Exit') {
+                        if (currentBiosItem === 0) { applyBiosSettings(); exitBiosMode(); }
+                        if (currentBiosItem === 1) exitBiosMode();
                     }
                     break;
-                case 'Escape':
-                    exitBiosMode();
-                    break;
-                case 'F10':
-                    exitBiosMode();
-                    break;
+                case 'Escape': exitBiosMode(); break;
+                case 'F10': applyBiosSettings(); exitBiosMode(); break;
+                case '+': case '=': case 'PageUp': changeValue(1); break;
+                case '-': case '_': case 'PageDown': changeValue(-1); break;
             }
             renderBiosScreen();
         }
+        
+        function applyBiosSettings() {
+            biosSettings = JSON.parse(JSON.stringify(tempBiosSettings));
+            localStorage.setItem('removeos_bios', JSON.stringify(biosSettings));
+            log('BIOS settings saved.', 'success');
+        }
+
+        function loadBiosSettings() {
+            const savedSettings = localStorage.getItem('removeos_bios');
+            if (savedSettings) {
+                biosSettings = JSON.parse(savedSettings);
+            }
+        }
+
 
         async function enterBiosMode() {
             return new Promise(resolve => {
                 isExecuting = true;
                 mainContent.classList.add('hidden');
                 biosScreen.classList.remove('hidden');
+
+                tempBiosSettings = JSON.parse(JSON.stringify(biosSettings));
 
                 const timeItem = biosData.Main.find(item => item.name === 'System Time');
                 const dateItem = biosData.Main.find(item => item.name === 'System Date');
@@ -1209,7 +1262,6 @@
                 renderBiosScreen();
                 
                 document.addEventListener('keydown', biosKeyHandler);
-                // We resolve the promise inside exitBiosMode
                 window.exitBiosPromiseResolve = resolve;
             });
         }
@@ -1265,8 +1317,9 @@
             requestAnimationFrame(gameLoop); 
         }
         async function bootStep(text, delay=50) { 
+            const fastBootDelay = biosSettings['Fast Boot'] === 'Enabled' ? 5 : delay;
             bootLog.textContent+=text+'\n'; 
-            await sleep(delay); 
+            await sleep(fastBootDelay); 
         }
         
         async function startBootSequence() {
@@ -1276,19 +1329,23 @@
             mainContent.classList.add('hidden');
             
             bootLog.textContent=''; 
-            await sleep(500);
+            await sleep(biosSettings['Fast Boot'] === 'Enabled' ? 100 : 500);
             await bootStep(`RemoveOS Kernel v9.6`); 
             await bootStep('Initializing USB Controllers ... OK');
             await bootStep(`Memory Test: ${Math.pow(2, Math.floor(Math.random()*4+2))}GB OK`); 
             await bootStep('Found (SATA): REMOVEOS_DISK ... Booting...'); 
-            await sleep(500);
+            await sleep(biosSettings['Fast Boot'] === 'Enabled' ? 100 : 500);
             await bootStep('Loading kernel ...'); 
             await bootStep('Initializing filesystem ...');
             await bootStep('Starting service audiod ... [OK]'); 
             await bootStep('Starting service networkd ... [OK]');
-            await bootStep('Starting RAI Core Daemon ... [OK]');
+            if (biosSettings['RAI Core'] === 'Enabled') {
+                await bootStep('Starting RAI Core Daemon ... [OK]');
+            } else {
+                 await bootStep('Starting RAI Core Daemon ... [SKIPPED]');
+            }
             await bootStep('Starting shell ...'); 
-            await sleep(1000);
+            await sleep(biosSettings['Fast Boot'] === 'Enabled' ? 200 : 1000);
 
             bootScreen.classList.add('hidden'); 
             mainContent.classList.remove('hidden');
@@ -1298,9 +1355,9 @@
 
         function init() {
             logOutput.innerHTML=''; 
-            logRaw(BANNER); 
-            log('RemoveOS v9.6 loaded. Welcome.', 'success');
-            log("Type 'help' for commands, or 'ask <prompt>' to talk to RAI.", 'info'); 
+            // logRaw(BANNER); 
+            // log('RemoveOS v9.6 loaded. Welcome.', 'success');
+            // log("Type 'help' for commands, or 'ask <prompt>' to talk to RAI.", 'info'); 
             applyTheme(localStorage.getItem('terminalTheme')||'matrix');
             updatePromptAndStatus();
             commandInput.focus();
@@ -1312,7 +1369,19 @@
             }, 1000);
             requestAnimationFrame(gameLoop);
             makeInteractive(editorWindow);
+            makeInteractive(runWindow);
+            makeInteractive(browserWindow);
+            makeInteractive(networkCenterWindow);
         }
+
+        // START LOGIC
+        window.onload = () => {
+            loadBiosSettings();
+            initAudio();
+            startBootSequence();
+        };
+
     </script>
 </body>
 </html>
+
